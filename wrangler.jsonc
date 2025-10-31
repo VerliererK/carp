@@ -6,7 +6,7 @@
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "carp",
     "compatibility_date": "2025-10-29",
-    "main": "server/index.ts",
+    "main": "src/worker/index.ts",
     "assets": {
         "not_found_handling": "single-page-application"
     },
