@@ -10,6 +10,14 @@
     "assets": {
         "not_found_handling": "single-page-application"
     },
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "carp-db",
+            "database_id": "68102c87-b992-490f-8409-b21f28fc86aa",
+            "migrations_dir": "migrations"
+        }
+    ],
     "observability": {
         "enabled": true
     }
