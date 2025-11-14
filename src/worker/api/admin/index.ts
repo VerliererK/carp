@@ -1,9 +1,7 @@
 import { Hono } from 'hono';
-import apiRoutes from './api';
+import settingsRoutes from './settings';
 
 const app = new Hono<{ Bindings: Env }>();
-
-// --- Routes ---
-app.route('/api', apiRoutes);
+app.route('/settings', settingsRoutes);
 
 export default app;

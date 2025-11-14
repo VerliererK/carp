@@ -1,9 +1,7 @@
 import { Hono } from 'hono';
-import apiRoutes from './api';
+import adminRoutes from './admin';
 
 const app = new Hono<{ Bindings: Env }>();
-
-// --- Routes ---
-app.route('/api', apiRoutes);
+app.route('/admin', adminRoutes);
 
 export default app;
