@@ -1,0 +1,143 @@
+import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
+import type { Provider, RequestLog } from '@shared/types';
+import { systemSettings, providers, apiKeys, requestLogs } from '../lib/db';
+
+const DEFAULT_MAX_ATTEMPTS = 3;
+const DEFAULT_MAX_FAILURES = 3;
+
+export const proxyHandler = async (c: Context) => {
+  const url = new URL(c.req.url);
+  const providerName = c.req.param('provider');
+
+  if (!providerName) {
+    throw new HTTPException(400, { message: 'Provider is required' });
+  }
+
+  // Validate provider
+  const provider = await providers.getByName(c.env.DB, providerName);
+  if (!provider) throw new HTTPException(404, { message: 'Provider not found' });
+  if (provider.enabled !== 1) throw new HTTPException(403, { message: 'Provider is disabled' });
+
+  // Configuration
+  const maxAttemptsSetting = await systemSettings.get(c.env.DB, 'max_attempts');
+  const maxAttempts = Math.max(1, parseInt(maxAttemptsSetting?.value || '') || DEFAULT_MAX_ATTEMPTS);
+  const maxKeyFailuresSetting = await systemSettings.get(c.env.DB, 'maxKeyFailures');
+  const maxKeyFailures = Math.max(1, parseInt(maxKeyFailuresSetting?.value || '') || DEFAULT_MAX_FAILURES);
+  const recordUsage = (key: number, success: boolean) => apiKeys.recordUsage(c.env.DB, key, success, maxKeyFailures);
+  const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
+
+  // Prepare request
+  const originalPath = url.pathname.slice(`/proxy/${providerName}`.length);
+  const baseUrl = provider.base_url.replace(/\/+$/, '');
+  const targetUrl = `${baseUrl}${originalPath}${url.search}`;
+  const headers = sanitizeHeaders(c.req.raw.headers, provider);
+  const body = c.req.raw.body ? await c.req.raw.arrayBuffer() : undefined;
+  const model = body ? getModel(body) : undefined;
+
+  let lastError: Error | null = null;
+  const excludedKeyIds = new Set<number>();
+
+  // Retry loop
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const apiKeyPool = await apiKeys.listLRU(c.env.DB, provider.id, { limit: 3, excludeIds: Array.from(excludedKeyIds) });
+    const apiKey = apiKeyPool.length > 0 ? pickRandom(apiKeyPool) : null;
+    if (!apiKey) throw new HTTPException(503, { message: 'No available API keys' });
+
+    headers.set('Authorization', `Bearer ${apiKey.key}`);
+    excludedKeyIds.add(apiKey.id); // Avoid retrying the same key within this request
+
+    try {
+      const startTime = Date.now();
+      const response = await fetch(targetUrl, { method: c.req.method, headers, body });
+      const duration = Date.now() - startTime;
+
+      if (response.ok) {
+        console.log(`provider '${providerName}' with key ID ${apiKey.id} succeeded in ${duration}ms.`);
+        await recordUsage(apiKey.id, true);
+        logRequest({ provider_id: provider.id, api_key_id: apiKey.id, url_path: originalPath, model, status_code: response.status, success: 1, duration: duration });
+        return response;
+      }
+
+      const errorMsg = await extractErrorMessage(response);
+      await recordUsage(apiKey.id, false);
+      logRequest({ provider_id: provider.id, api_key_id: apiKey.id, url_path: originalPath, model, status_code: response.status, success: 0, duration: duration, error_msg: errorMsg });
+      lastError = new Error(errorMsg || `HTTP ${response.status}`);
+
+      if (!isRetryableStatus(response.status)) return response;
+      console.log(`Attempt ${attempt + 1} for provider '${providerName}' with key ID ${apiKey.id} failed with status ${response.status}. Retrying...`);
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`Attempt ${attempt + 1} for provider '${providerName}' with key ID ${apiKey.id} failed with error: ${lastError.message}`);
+      // await recordUsage(apiKey.id, false);
+      logRequest({ provider_id: provider.id, api_key_id: apiKey.id, url_path: originalPath, model, status_code: 0, success: 0, duration: 0, error_msg: lastError.message });
+    }
+  }
+
+  // All retries exhausted
+  throw new HTTPException(502, { message: lastError?.message || 'Unknown error' });
+};
+
+function sanitizeHeaders(
+  originalHeaders: Headers,
+  provider: Provider
+): Headers {
+  const headers = new Headers(originalHeaders);
+
+  // Remove Cloudflare-specific headers
+  headers.delete('host');
+  headers.delete('cf-connecting-ip');
+  headers.delete('cf-ray');
+  headers.delete('cf-ipcountry');
+  headers.delete('cf-visitor');
+
+  // Remove headers that may interfere with the request
+  headers.delete('content-length');      // Let fetch auto-calculate
+  headers.delete('transfer-encoding');   // Avoid conflicts
+  headers.delete('connection');          // HTTP/1.1 specific, not needed
+
+  // Add custom headers
+  if (provider.custom_headers) {
+    try {
+      const customHeaders = JSON.parse(provider.custom_headers);
+      for (const [key, value] of Object.entries(customHeaders)) {
+        headers.set(key, value as string);
+      }
+    } catch (e) {
+      console.error('Failed to parse custom_headers:', e);
+    }
+  }
+
+  return headers;
+}
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 401 || status === 429 || status >= 500;
+}
+
+function getModel(body: ArrayBuffer): string | undefined {
+  try {
+    const bodyText = new TextDecoder().decode(body);
+    const bodyJson = JSON.parse(bodyText) as any;
+    return bodyJson.model;
+  } catch {
+    return undefined;
+  }
+}
+
+async function extractErrorMessage(response: Response): Promise<string> {
+  try {
+    const contentType = response.headers.get('content-type');
+    if (contentType?.includes('application/json')) {
+      const errorBody = (await response.clone().json()) as any;
+      return errorBody.error?.message || errorBody.message || `HTTP ${response.status}`;
+    }
+  } catch {
+    // Cannot parse, ignore
+  }
+  return `HTTP ${response.status}`;
+}
