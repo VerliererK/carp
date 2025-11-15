@@ -1,4 +1,4 @@
-import type { SystemSetting, Provider, ApiKey, RequestLog } from '@shared/types';
+import type { SystemSetting, Provider, ApiKey, RequestLog, RequestStats, TimeSeriesStats } from '@shared/types';
 
 // System Settings
 export const systemSettings = {
@@ -273,5 +273,187 @@ export const apiKeys = {
 
     const result = await db.prepare(query).bind(...params).all<ApiKey>();
     return result.results;
+  },
+};
+
+// Request Logs
+export const requestLogs = {
+  async create(db: D1Database, data: Omit<RequestLog, 'id' | 'created_at'>): Promise<RequestLog> {
+    const result = await db.prepare(
+      'INSERT INTO request_logs (provider_id, api_key_id, url_path, model, status_code, success, duration, error_msg) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *'
+    ).bind(
+      data.provider_id,
+      data.api_key_id,
+      data.url_path,
+      data.model || null,
+      data.status_code,
+      data.success,
+      data.duration,
+      data.error_msg || null
+    ).first<RequestLog>();
+
+    return result!;
+  },
+
+  async list(db: D1Database, limit = 100, offset = 0): Promise<RequestLog[]> {
+    const result = await db.prepare('SELECT * FROM request_logs ORDER BY created_at DESC LIMIT ? OFFSET ?')
+      .bind(limit, offset).all<RequestLog>();
+    return result.results.map(log => ({
+      ...log,
+      created_at: log.created_at.replace(' ', 'T') + 'Z'
+    }));
+  },
+
+  async listWithFilters(
+    db: D1Database,
+    options: {
+      limit?: number;
+      offset?: number;
+      providerId?: number;
+      success?: boolean;
+      startDate?: string;
+      endDate?: string;
+    } = {}
+  ): Promise<{ logs: RequestLog[]; total: number }> {
+    const limit = Math.min(options.limit ?? 100, 1000);
+    const offset = options.offset ?? 0;
+    const conditions: string[] = [];
+    const params: any[] = [];
+
+    if (options.providerId !== undefined) {
+      conditions.push('provider_id = ?');
+      params.push(options.providerId);
+    }
+
+    if (options.success !== undefined) {
+      conditions.push('success = ?');
+      params.push(options.success ? 1 : 0);
+    }
+
+    if (options.startDate) {
+      conditions.push('created_at >= ?');
+      params.push(options.startDate);
+    }
+
+    if (options.endDate) {
+      conditions.push('created_at <= ?');
+      params.push(options.endDate);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const countResult = await db.prepare(
+      `SELECT COUNT(*) as total FROM request_logs ${whereClause}`
+    ).bind(...params).first<{ total: number }>();
+
+    const total = countResult?.total || 0;
+
+    const logsResult = await db.prepare(
+      `SELECT * FROM request_logs ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all<RequestLog>();
+
+    return {
+      logs: logsResult.results.map(log => ({
+        ...log,
+        created_at: log.created_at.replace(' ', 'T') + 'Z'
+      })),
+      total
+    };
+  },
+
+  async deleteAll(db: D1Database): Promise<void> {
+    await db.prepare('DELETE FROM request_logs').run();
+  },
+
+  async deleteOlderThan(db: D1Database, days: number): Promise<number> {
+    const safeDays = Number.isFinite(days) && days > 0 ? Math.floor(days) : 0;
+    if (safeDays <= 0) {
+      return 0;
+    }
+
+    const result = await db
+      .prepare("DELETE FROM request_logs WHERE created_at < datetime('now', ?)")
+      .bind(`-${safeDays} days`)
+      .run();
+
+    return result.meta?.changes ?? 0;
+  },
+
+  getTimeConfig(period: '24h' | '7d'): { type: 'hours' | 'days'; value: number; format: string } {
+    const config = {
+      '24h': { type: 'hours' as const, value: 24, format: '%Y-%m-%dT%H:00:00Z' },
+      '7d': { type: 'days' as const, value: 7, format: '%Y-%m-%d' },
+    };
+    return config[period];
+  },
+
+  async getStats(db: D1Database, period: '24h' | '7d'): Promise<RequestStats> {
+    const { type, value } = this.getTimeConfig(period);
+
+    const result = await db.prepare(`
+      SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
+        CAST(AVG(duration) AS INTEGER) as avg_duration
+      FROM request_logs
+      WHERE created_at >= datetime('now', ?)
+    `).bind(`-${value} ${type}`).first<RequestStats>();
+
+    if (!result || result.total === 0) {
+      return {
+        total: 0,
+        success: 0,
+        failed: 0,
+        avg_duration: 0
+      };
+    }
+
+    return result;
+  },
+
+  async getTimeSeriesStats(db: D1Database, period: '24h' | '7d'): Promise<TimeSeriesStats[]> {
+    const { type, value, format } = this.getTimeConfig(period);
+
+    const result = await db.prepare(`
+      SELECT 
+        strftime(?, created_at) as period,
+        COUNT(*) as total,
+        SUM(success) as success,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed,
+        CAST(AVG(duration) AS INTEGER) as avg_duration
+      FROM request_logs
+      WHERE created_at >= datetime('now', ?)
+      GROUP BY period
+      ORDER BY period ASC
+    `).bind(format, `-${value} ${type}`).all<TimeSeriesStats>();
+
+    // Fill gaps with zero values
+    const data = result.results;
+    const filledData: TimeSeriesStats[] = [];
+    const now = new Date();
+
+    for (let i = value - 1; i >= 0; i--) {
+      let periodStr: string;
+      if (type === 'hours') {
+        const date = new Date(now);
+        date.setUTCHours(now.getUTCHours() - i, 0, 0, 0);
+        periodStr = date.toISOString().slice(0, 13) + ':00:00Z';
+      } else {
+        const date = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i));
+        periodStr = date.toISOString().slice(0, 10);
+      }
+
+      const existing = data.find(d => d.period === periodStr);
+      filledData.push(existing || {
+        period: periodStr,
+        total: 0,
+        success: 0,
+        failed: 0,
+        avg_duration: 0,
+      });
+    }
+
+    return filledData;
   },
 };
