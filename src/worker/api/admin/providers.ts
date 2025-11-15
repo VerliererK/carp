@@ -3,8 +3,11 @@ import { HTTPException } from 'hono/http-exception';
 import { validator } from 'hono/validator';
 import { providers } from '../../lib/db';
 import type { Provider } from '@shared/types';
+import keysRoute from './provider-keys';
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.route('/:name/keys', keysRoute);
 
 app.get('/', async (c) => {
   const result = await providers.list(c.env.DB);
