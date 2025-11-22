@@ -1,0 +1,120 @@
+:root {
+  /* --- 基礎色票 (Primitives) --- */
+  /* Pantone 2026: Blue Aura */
+  --p-blue-50: 200 30% 97%;
+  --p-blue-100: 200 25% 90%;
+  --p-blue-300: 200 22% 77%;
+  --p-blue-500: 200 25% 55%;
+  --p-blue-700: 200 35% 35%;
+  --p-blue-900: 200 40% 15%;
+
+  /* Pantone 2026: Jelly Mint */
+  --p-mint-50: 153 50% 96%;
+  --p-mint-300: 153 46% 72%;
+  --p-mint-700: 153 55% 30%;
+
+  /* Pantone 2026: Amber Haze */
+  --p-amber-50: 46 60% 96%;
+  --p-amber-300: 46 72% 65%;
+  --p-amber-500: 46 72% 47%;
+  --p-amber-700: 46 80% 30%;
+
+  /* Error (Rose) */
+  --p-rose-50: 0 60% 97%;
+  --p-rose-500: 0 62% 68%;
+  --p-rose-700: 0 65% 40%;
+
+  /* Neutrals */
+  --n-0: 0 0% 100%;
+  --n-50: 210 20% 98%;
+  --n-100: 210 15% 94%;
+  --n-200: 210 12% 88%;
+  --n-700: 215 15% 35%;
+  --n-800: 215 20% 20%;
+  --n-900: 215 25% 12%;
+  --n-950: 215 28% 8%;
+
+  /* --- 語意化變數 (Semantic Tokens) - LIGHT MODE --- */
+  --bg-app: hsl(var(--n-50));
+  --bg-card: hsl(var(--n-0));
+  --bg-card-hover: hsl(var(--n-50));
+  --bg-glass: hsla(var(--n-0) / 0.7);
+
+  --text-primary: hsl(var(--n-900));
+  --text-secondary: hsl(var(--n-700));
+  --text-tertiary: hsl(var(--p-blue-500));
+
+  --brand-primary: hsl(var(--p-blue-700));
+  --brand-on-primary: hsl(var(--n-0));
+  --brand-subtle: hsl(var(--p-blue-50));
+
+  --status-success-bg: hsl(var(--p-mint-50));
+  --status-success-text: hsl(var(--p-mint-700));
+  --status-success-border: hsl(var(--p-mint-300));
+
+  --status-warning-bg: hsl(var(--p-amber-50));
+  --status-warning-text: hsl(var(--p-amber-700));
+  --status-warning-border: hsl(var(--p-amber-500));
+
+  --status-error-bg: hsl(var(--p-rose-50));
+  --status-error-text: hsl(var(--p-rose-700));
+  --status-error-border: hsl(var(--p-rose-500));
+
+  --border-subtle: hsl(var(--n-200));
+  --border-focus: hsl(var(--p-blue-300));
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --shadow-float: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-app: hsl(var(--n-950));
+    --bg-card: hsl(var(--n-900));
+    --bg-card-hover: hsl(var(--n-800));
+    --bg-glass: hsla(var(--n-900) / 0.6);
+
+    --text-primary: hsl(var(--n-50));
+    --text-secondary: hsl(var(--p-blue-300));
+    --text-tertiary: hsl(var(--n-700));
+
+    --brand-primary: hsl(var(--p-blue-300));
+    --brand-on-primary: hsl(var(--n-950));
+    --brand-subtle: hsla(var(--p-blue-300) / 0.1);
+
+    --status-success-bg: hsla(var(--p-mint-300) / 0.1);
+    --status-success-text: hsl(var(--p-mint-300));
+    --status-success-border: hsla(var(--p-mint-300) / 0.3);
+
+    --status-warning-bg: hsla(var(--p-amber-500) / 0.1);
+    --status-warning-text: hsl(var(--p-amber-500));
+    --status-warning-border: hsla(var(--p-amber-500) / 0.3);
+
+    --status-error-bg: hsla(var(--p-rose-500) / 0.1);
+    --status-error-text: hsl(var(--p-rose-500));
+    --status-error-border: hsla(var(--p-rose-500) / 0.3);
+
+    --border-subtle: hsl(var(--n-800));
+    --border-focus: hsl(var(--p-blue-500));
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+}
