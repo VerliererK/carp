@@ -18,7 +18,10 @@
     "db:migrate:remote": "wrangler d1 migrations apply carp-db --remote"
   },
   "dependencies": {
+    "@iconify/vue": "^5.0.0",
+    "@tailwindcss/vite": "^4.1.17",
     "hono": "^4.10.4",
+    "tailwindcss": "^4.1.17",
     "vue": "^3.5.22",
     "vue-router": "^4.5.1"
   },
