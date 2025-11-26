@@ -1,3 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  /* Semantic Colors Mapping */
+  --color-app: var(--bg-app);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-tertiary: var(--text-tertiary);
+
+  --color-brand: var(--brand-primary);
+  --color-brand-on: var(--brand-on-primary);
+  --color-brand-subtle: var(--brand-subtle);
+
+  --color-status-success: var(--status-success-bg);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-success-border: var(--status-success-border);
+
+  --color-status-warning: var(--status-warning-bg);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-warning-border: var(--status-warning-border);
+
+  --color-status-error: var(--status-error-bg);
+  --color-status-error-text: var(--status-error-text);
+  --color-status-error-border: var(--status-error-border);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-focus: var(--border-focus);
+
+  /* Shadows */
+  --shadow-float: var(--shadow-float);
+}
+
 :root {
   /* --- 基礎色票 (Primitives) --- */
   /* Pantone 2026: Blue Aura */
@@ -37,7 +72,7 @@
   /* --- 語意化變數 (Semantic Tokens) - LIGHT MODE --- */
   --bg-app: hsl(var(--n-50));
   --bg-card: hsl(var(--n-0));
-  --bg-card-hover: hsl(var(--n-50));
+  --bg-card-hover: hsl(var(--n-100));
   --bg-glass: hsla(var(--n-0) / 0.7);
 
   --text-primary: hsl(var(--n-900));
@@ -68,53 +103,58 @@
   --shadow-float: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-app: hsl(var(--n-950));
-    --bg-card: hsl(var(--n-900));
-    --bg-card-hover: hsl(var(--n-800));
-    --bg-glass: hsla(var(--n-900) / 0.6);
+:root.dark {
+  --bg-app: hsl(var(--n-950));
+  --bg-card: hsl(var(--n-900));
+  --bg-card-hover: hsl(var(--n-800));
+  --bg-glass: hsla(var(--n-900) / 0.6);
 
-    --text-primary: hsl(var(--n-50));
-    --text-secondary: hsl(var(--p-blue-300));
-    --text-tertiary: hsl(var(--n-700));
+  --text-primary: hsl(var(--n-50));
+  --text-secondary: hsl(var(--p-blue-300));
+  --text-tertiary: hsl(var(--n-700));
 
-    --brand-primary: hsl(var(--p-blue-300));
-    --brand-on-primary: hsl(var(--n-950));
-    --brand-subtle: hsla(var(--p-blue-300) / 0.1);
+  --brand-primary: hsl(var(--p-blue-300));
+  --brand-on-primary: hsl(var(--n-950));
+  --brand-subtle: hsla(var(--p-blue-300) / 0.1);
 
-    --status-success-bg: hsla(var(--p-mint-300) / 0.1);
-    --status-success-text: hsl(var(--p-mint-300));
-    --status-success-border: hsla(var(--p-mint-300) / 0.3);
+  --status-success-bg: hsla(var(--p-mint-300) / 0.1);
+  --status-success-text: hsl(var(--p-mint-300));
+  --status-success-border: hsla(var(--p-mint-300) / 0.3);
 
-    --status-warning-bg: hsla(var(--p-amber-500) / 0.1);
-    --status-warning-text: hsl(var(--p-amber-500));
-    --status-warning-border: hsla(var(--p-amber-500) / 0.3);
+  --status-warning-bg: hsla(var(--p-amber-500) / 0.1);
+  --status-warning-text: hsl(var(--p-amber-500));
+  --status-warning-border: hsla(var(--p-amber-500) / 0.3);
 
-    --status-error-bg: hsla(var(--p-rose-500) / 0.1);
-    --status-error-text: hsl(var(--p-rose-500));
-    --status-error-border: hsla(var(--p-rose-500) / 0.3);
+  --status-error-bg: hsla(var(--p-rose-500) / 0.1);
+  --status-error-text: hsl(var(--p-rose-500));
+  --status-error-border: hsla(var(--p-rose-500) / 0.3);
 
-    --border-subtle: hsl(var(--n-800));
-    --border-focus: hsl(var(--p-blue-500));
+  --border-subtle: hsl(var(--n-800));
+  --border-focus: hsl(var(--p-blue-500));
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
-  }
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
 }
 
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   background-color: var(--bg-app);
+  background-image:
+    radial-gradient(circle at 0% 0%, hsla(var(--p-blue-300) / 0.15) 0%, transparent 60%),
+    radial-gradient(circle at 100% 100%, hsla(var(--p-mint-300) / 0.15) 0%, transparent 60%);
+  background-attachment: fixed;
   color: var(--text-primary);
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+#app {
+  width: 100%;
+  min-height: 100dvh;
   display: flex;
+  flex-direction: column;
 }
