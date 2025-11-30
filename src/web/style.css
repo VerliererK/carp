@@ -79,7 +79,7 @@
   --text-secondary: hsl(var(--n-700));
   --text-tertiary: hsl(var(--p-blue-500));
 
-  --brand-primary: hsl(var(--p-blue-700));
+  --brand-primary: hsl(var(--p-blue-500));
   --brand-on-primary: hsl(var(--n-0));
   --brand-subtle: hsl(var(--p-blue-50));
 
