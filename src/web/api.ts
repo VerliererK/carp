@@ -1,4 +1,5 @@
 import type { RequestStats, TimeSeriesStats } from '@shared/types';
+import type { Provider } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
 const API_BASE = '/api/admin';
@@ -36,4 +37,63 @@ export async function getStatsTimeseries(period: '24h' | '7d' = '24h'): Promise<
   const response = await authorizedFetch(`${API_BASE}/stats/timeseries?period=${period}`);
   if (!response.ok) throw new Error('Failed to fetch log time series stats');
   return await response.json();
+}
+
+// ========== Providers API ==========
+
+export async function listProviders(): Promise<(Provider & { keys_count: number })[]> {
+  const response = await authorizedFetch(`${API_BASE}/providers`);
+  if (!response.ok) throw new Error('Failed to fetch providers');
+  return await response.json();
+}
+
+export async function createProvider(data: Omit<Provider, 'id'>): Promise<Provider> {
+  const response = await authorizedFetch(`${API_BASE}/providers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to create provider');
+  }
+  const result = await response.json();
+  return result.provider;
+}
+
+export async function getProvider(name: string): Promise<Provider & { keys_count: number }> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${name}`);
+  if (!response.ok) throw new Error('Provider not found');
+  return await response.json();
+}
+
+export async function updateProvider(name: string, data: Partial<Omit<Provider, 'id'>>): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to update provider');
+  }
+}
+
+export async function toggleProvider(name: string, enabled: boolean): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to toggle provider');
+  }
+}
+
+export async function deleteProvider(name: string): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${name}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete provider');
 }
