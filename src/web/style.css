@@ -64,6 +64,7 @@
   --n-50: 210 20% 98%;
   --n-100: 210 15% 94%;
   --n-200: 210 12% 88%;
+  --n-400: 215 15% 60%;
   --n-700: 215 15% 35%;
   --n-800: 215 20% 20%;
   --n-900: 215 25% 12%;
@@ -111,7 +112,7 @@
 
   --text-primary: hsl(var(--n-50));
   --text-secondary: hsl(var(--p-blue-300));
-  --text-tertiary: hsl(var(--n-700));
+  --text-tertiary: hsl(var(--n-400));
 
   --brand-primary: hsl(var(--p-blue-300));
   --brand-on-primary: hsl(var(--n-950));
