@@ -128,7 +128,7 @@
 
   --status-error-bg: hsla(var(--p-rose-500) / 0.1);
   --status-error-text: hsl(var(--p-rose-500));
-  --status-error-border: hsla(var(--p-rose-500) / 0.3);
+  --status-error-border: hsla(var(--p-rose-500) / 0.6);
 
   --border-subtle: hsl(var(--n-800));
   --border-focus: hsl(var(--p-blue-500));

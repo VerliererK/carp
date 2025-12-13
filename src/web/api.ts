@@ -1,4 +1,4 @@
-import type { RequestStats, TimeSeriesStats } from '@shared/types';
+import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
 import type { Provider } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
@@ -96,4 +96,44 @@ export async function deleteProvider(name: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to delete provider');
+}
+
+// ========== Logs API ==========
+
+export interface LogsResponse {
+  logs: RequestLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface LogFilters {
+  limit?: number;
+  offset?: number;
+  provider_id?: number;
+  success?: boolean;
+  start_date?: string;
+  end_date?: string;
+}
+
+export async function listLogs(filters?: LogFilters): Promise<LogsResponse> {
+  const params = new URLSearchParams();
+  if (filters?.limit) params.append('limit', filters.limit.toString());
+  if (filters?.offset) params.append('offset', filters.offset.toString());
+  if (filters?.provider_id) params.append('provider_id', filters.provider_id.toString());
+  if (filters?.success !== undefined) params.append('success', filters.success.toString());
+  if (filters?.start_date) params.append('start_date', filters.start_date);
+  if (filters?.end_date) params.append('end_date', filters.end_date);
+
+  const url = `${API_BASE}/logs${params.toString() ? '?' + params.toString() : ''}`;
+  const response = await authorizedFetch(url);
+  if (!response.ok) throw new Error('Failed to fetch logs');
+  return await response.json();
+}
+
+export async function clearLogs(): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/logs`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to clear logs');
 }
