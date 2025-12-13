@@ -41,7 +41,7 @@ const close = () => {
             </button>
           </div>
 
-          <div class="text-sm text-text-secondary">
+          <div class="text-text-secondary">
             <slot></slot>
           </div>
 

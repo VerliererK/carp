@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { Icon } from '@iconify/vue';
 import { listLogs, listProviders, type LogFilters } from '@/api';
 import type { RequestLog, Provider } from '@shared/types';
+import BaseModal from '@/components/BaseModal.vue';
 
 // State
 const logs = ref<RequestLog[]>([]);
@@ -21,6 +22,10 @@ const endDate = ref('');
 const page = ref(1);
 const limit = ref(20);
 const limitOptions = [10, 20, 50, 100] as const;
+
+// Details Modal
+const showDetails = ref(false);
+const selectedLog = ref<RequestLog | null>(null);
 
 // Computed
 const dateRangeError = computed(() => {
@@ -138,7 +143,10 @@ const mobileSubtitle = (log: RequestLog) => {
   return log.model ? `${name} · ${log.url_path}` : name;
 };
 
-const openDetails = (log: RequestLog) => { };
+const openDetails = (log: RequestLog) => {
+  selectedLog.value = log;
+  showDetails.value = true;
+};
 
 const goToPage = (next: number) => {
   const clamped = Math.min(Math.max(1, next), totalPages.value);
@@ -262,8 +270,7 @@ onMounted(() => {
       <button v-for="log in logs" :key="log.id" type="button" class="w-full text-left p-4 hover:bg-card-hover"
         @click="openDetails(log)">
         <div class="flex items-start gap-3">
-          <div class="px-2 py-0.5 text-sm rounded-full border font-mono tabular-nums"
-            :class="log.success ? 'bg-status-success text-status-success-text border-status-success-border' : 'bg-status-error text-status-error-text border-status-error-border'">
+          <div class="status-badge" :class="log.success ? 'status-badge-success' : 'status-badge-error'">
             {{ statusBadgeText(log) }}
           </div>
 
@@ -287,7 +294,7 @@ onMounted(() => {
               class="mt-2 flex items-center gap-2 rounded-xl bg-status-error/50 border border-status-error-border px-2.5 py-2 text-status-error-text"
               :title="log.error_msg || ''">
               <Icon icon="lucide:triangle-alert" class="w-4 h-4 shrink-0" />
-              <span class="line-clamp-1 break-all">{{ log.error_msg }}</span>
+              <span class="text-sm line-clamp-1 break-all">{{ log.error_msg }}</span>
             </div>
           </div>
         </div>
@@ -332,6 +339,47 @@ onMounted(() => {
         <Icon icon="lucide:chevron-down" class="pagination-select-icon right-2" />
       </div>
     </div>
+
+    <!-- Details Modal -->
+    <BaseModal v-model="showDetails" title="Details">
+      <div v-if="selectedLog" class="space-y-4 pb-2">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="details-label">Time</label>
+            <span class="text-text-primary font-mono">{{ formatDateTime(selectedLog.created_at) }}</span>
+          </div>
+          <div>
+            <label class="details-label">Status</label>
+            <span class="status-badge" :class="selectedLog.success ? 'status-badge-success' : 'status-badge-error'">
+              {{ selectedLog.status_code }}
+            </span>
+          </div>
+          <div>
+            <label class="details-label">Provider</label>
+            <span class="text-text-primary">{{ providerName(selectedLog.provider_id) }}</span>
+          </div>
+          <div v-if="selectedLog.model">
+            <label class="details-label">Model</label>
+            <div class="text-text-primary font-medium">{{ selectedLog.model }}</div>
+          </div>
+          <div>
+            <label class="details-label">Path</label>
+            <span class="text-text-primary"> {{ selectedLog.url_path }}</span>
+          </div>
+          <div>
+            <label class="details-label">Duration</label>
+            <span class="text-text-primary font-mono">{{ formatDuration(selectedLog.duration) }}</span>
+          </div>
+        </div>
+
+        <div v-if="!selectedLog.success && selectedLog.error_msg">
+          <label class="text-error uppercase tracking-wider block mb-2">Error Message</label>
+          <div class="status-badge-error p-3 rounded-lg overflow-y-auto max-h-[180px]">
+            {{ selectedLog.error_msg }}
+          </div>
+        </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
 
@@ -380,5 +428,21 @@ onMounted(() => {
 
 .pagination-select {
   @apply h-9 pl-8 bg-card border border-border-subtle rounded-xl text-text-secondary appearance-none outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-mono tabular-nums;
+}
+
+.status-badge {
+  @apply inline-flex items-center px-2 py-0.5 text-sm rounded-full border font-mono tabular-nums;
+}
+
+.status-badge-success {
+  @apply bg-status-success text-status-success-text border-status-success-border;
+}
+
+.status-badge-error {
+  @apply bg-status-error text-status-error-text border-status-error-border;
+}
+
+.details-label {
+  @apply text-text-secondary uppercase tracking-wider block mb-1;
 }
 </style>
