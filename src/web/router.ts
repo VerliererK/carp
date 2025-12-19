@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { getToken } from './auth';
 import Dashboard from './views/Dashboard.vue';
 import Providers from './views/Providers.vue';
+import ProviderKeys from './views/ProviderKeys.vue';
 import Logs from './views/Logs.vue';
 import Settings from './views/Settings.vue';
 
@@ -16,6 +17,7 @@ export const router = createRouter({
         { path: '', redirect: 'dashboard' },
         { path: 'dashboard', name: 'dashboard', component: Dashboard },
         { path: 'providers', name: 'providers', component: Providers },
+        { path: 'providers/:name/keys', name: 'provider-keys', component: ProviderKeys },
         { path: 'logs', name: 'logs', component: Logs },
         { path: 'settings', name: 'settings', component: Settings },
       ]

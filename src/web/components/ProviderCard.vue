@@ -40,20 +40,20 @@ defineEmits<{
 
       <!-- Actions -->
       <div class="flex items-center gap-2 ml-2">
-        <button @click="$emit('toggle', provider.id)"
-          class="p-2.5 rounded-lg transition-colors cursor-pointer hover:bg-bg-card-hover"
+        <button @click.stop="$emit('toggle', provider.id)"
+          class="p-2.5 rounded-lg transition-colors cursor-pointer hover:bg-card-hover"
           :class="provider.enabled ? 'text-status-success-text hover:text-status-success-text' : 'text-text-tertiary hover:text-text-primary'"
           :title="provider.enabled ? 'Disable' : 'Enable'"
           :aria-label="provider.enabled ? 'Disable provider' : 'Enable provider'">
           <Icon :icon="provider.enabled ? 'lucide:toggle-right' : 'lucide:toggle-left'" class="w-5 h-5" />
         </button>
 
-        <button @click="$emit('edit', provider.id)"
-          class="p-2.5 rounded-lg text-text-secondary cursor-pointer hover:text-brand-primary hover:bg-bg-card-hover transition-colors"
+        <button @click.stop="$emit('edit', provider.id)"
+          class="p-2.5 rounded-lg text-text-secondary cursor-pointer hover:text-brand-primary hover:bg-card-hover transition-colors"
           title="Edit" aria-label="Edit provider">
           <Icon icon="lucide:pencil" class="w-4.5 h-4.5" />
         </button>
-        <button @click="$emit('delete', provider.id)"
+        <button @click.stop="$emit('delete', provider.id)"
           class="p-2.5 rounded-lg text-text-secondary cursor-pointer hover:text-status-error-text hover:bg-status-error-bg/10 transition-colors"
           title="Delete" aria-label="Delete provider">
           <Icon icon="lucide:trash-2" class="w-4.5 h-4.5" />

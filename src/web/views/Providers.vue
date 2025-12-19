@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { Icon } from '@iconify/vue';
 import { listProviders, createProvider, toggleProvider, updateProvider, deleteProvider } from '@/api';
 import type { Provider } from '@shared/types';
 import ProviderCard from '@/components/ProviderCard.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ProviderDialog from '@/components/ProviderDialog.vue';
+
+const router = useRouter();
 
 const providers = ref<(Provider & { keys_count: number })[]>([]);
 
@@ -89,6 +92,10 @@ const confirmDelete = async () => {
   }
 };
 
+const navigateToKeys = (name: string) => {
+  router.push({ name: 'provider-keys', params: { name } });
+};
+
 onMounted(() => {
   getProviders();
 });
@@ -104,8 +111,8 @@ onMounted(() => {
   </div>
 
   <div class="space-y-4">
-    <ProviderCard v-for="provider in providers" :key="provider.id" :provider="provider" @toggle="handleToggle"
-      @edit="handleEdit" @delete="handleDelete" />
+    <ProviderCard v-for="provider in providers" :key="provider.id" :provider="provider" class="cursor-pointer"
+      @toggle="handleToggle" @edit="handleEdit" @delete="handleDelete" @click="navigateToKeys(provider.name)" />
   </div>
 
   <ConfirmDialog v-model="showDeleteDialog"
