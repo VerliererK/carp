@@ -132,15 +132,11 @@ const providerUpdateValidator = validator('json', (value) => validateProviderFie
 app.post('/', providerValidator, async (c) => {
   const data = await c.req.valid('json');
 
-  try {
-    const existingProvider = await providers.getByName(c.env.DB, data.name);
-    if (existingProvider) throw new HTTPException(400, { message: 'Provider already exists' });
+  const existingProvider = await providers.getByName(c.env.DB, data.name);
+  if (existingProvider) throw new HTTPException(400, { message: 'Provider already exists' });
 
-    const provider = await providers.create(c.env.DB, data);
-    return c.json({ provider, message: 'Provider created' }, 201);
-  } catch (error) {
-    throw new HTTPException(400, { message: (error as Error).message });
-  }
+  const provider = await providers.create(c.env.DB, data);
+  return c.json({ provider, message: 'Provider created' }, 201);
 });
 
 app.put('/:name', providerUpdateValidator, async (c) => {
@@ -150,12 +146,8 @@ app.put('/:name', providerUpdateValidator, async (c) => {
 
   const data = await c.req.valid('json');
 
-  try {
-    await providers.update(c.env.DB, provider.id, data);
-    return c.json({ message: 'Provider updated' });
-  } catch (error) {
-    throw new HTTPException(400, { message: (error as Error).message });
-  }
+  await providers.update(c.env.DB, provider.id, data);
+  return c.json({ message: 'Provider updated' });
 });
 
 app.delete('/:name', async (c) => {

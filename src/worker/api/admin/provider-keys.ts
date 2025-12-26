@@ -40,19 +40,14 @@ app.post('/', async (c) => {
     provider_id: provider.id
   } as ApiKey));
 
-  try {
-    const createdKeys = await apiKeys.create(c.env.DB, keysToCreate);
-    const createdCount = createdKeys.length;
-    const skippedCount = keysToCreate.length - createdCount;
+  const createdKeys = await apiKeys.create(c.env.DB, keysToCreate);
+  const createdCount = createdKeys.length;
+  const skippedCount = keysToCreate.length - createdCount;
 
-    return c.json({
-      keys: createdKeys,
-      message: `Created ${createdCount} API Keys, skipped ${skippedCount} duplicates.`
-    }, 201);
-
-  } catch (error) {
-    throw new HTTPException(400, { message: (error as Error).message });
-  }
+  return c.json({
+    keys: createdKeys,
+    message: `Created ${createdCount} API Keys, skipped ${skippedCount} duplicates.`
+  }, 201);
 });
 
 // POST /providers/:name/keys/reset
@@ -86,12 +81,8 @@ app.put('/:keyId', async (c) => {
     throw new HTTPException(404, { message: 'API Key not found for this provider' });
   }
 
-  try {
-    await apiKeys.update(c.env.DB, keyId, data);
-    return c.json({ message: 'API Key updated' });
-  } catch (error) {
-    throw new HTTPException(400, { message: (error as Error).message });
-  }
+  await apiKeys.update(c.env.DB, keyId, data);
+  return c.json({ message: 'API Key updated' });
 });
 
 // DELETE /providers/:name/keys/:keyId
