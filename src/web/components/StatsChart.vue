@@ -145,7 +145,7 @@ const chartData = computed<ChartData<'line'>>(() => ({
   labels: props.data.map(point => formatAxisLabel(point.period)),
   datasets: [
     {
-      label: '成功請求',
+      label: 'Success',
       data: props.data.map(point => point.success),
       borderColor: chartTheme.value.success,
       backgroundColor: context => {
@@ -164,7 +164,7 @@ const chartData = computed<ChartData<'line'>>(() => ({
       fill: true
     },
     {
-      label: '失敗請求',
+      label: 'Failed',
       data: props.data.map(point => point.failed),
       borderColor: chartTheme.value.failed,
       backgroundColor: context => {
@@ -234,7 +234,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
         },
         label: context => {
           const value = typeof context.parsed.y === 'number' ? context.parsed.y : 0
-          return `${context.dataset.label}：${formatNumber(value)} 次`
+          return `${context.dataset.label}：${formatNumber(value)}`
         }
       }
     }
