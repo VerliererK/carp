@@ -124,9 +124,9 @@ app.get('/:keyId/test', async (c) => {
   }
 
   const { base_url, test_path, test_model } = provider;
-  const baseUrl = new URL(base_url);
-  const testPath = test_path || '/v1/chat/completions';
-  const testUrl = new URL(testPath, baseUrl).href;
+  const baseUrl = base_url.replace(/\/+$/, '');
+  const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
+  const testUrl = `${baseUrl}/${testPath}`;
   const response = await fetch(testUrl, {
     method: 'POST',
     headers: {
@@ -146,7 +146,7 @@ app.get('/:keyId/test', async (c) => {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new HTTPException(400, { message: JSON.stringify({ success: false, status: response.status, error: errorText }) });
+    return c.json({ success: false, status: response.status, error: errorText }, 400);
   }
 
   return c.json({ success: true, status: response.status });
