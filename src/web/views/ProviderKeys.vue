@@ -221,7 +221,7 @@ const clearSearch = () => {
   }
 };
 
-const fetchKeys = async () => {
+const fetchKeys = async (enableLoading: boolean = true) => {
   const name = providerName.value;
   if (!name) return;
 
@@ -231,7 +231,7 @@ const fetchKeys = async () => {
   const order = sortOrder.value;
 
   try {
-    loading.value = true;
+    loading.value = enableLoading;
     const res = await listKeys(name, {
       limit: limit.value,
       offset: offset.value,
@@ -323,6 +323,7 @@ const handleTestKey = async (key: ApiKey) => {
     toast.error(e.message || 'Failed to test key');
   } finally {
     if (testingKeyId.value === key.id) testingKeyId.value = null;
+    fetchKeys(false);
   }
 };
 
