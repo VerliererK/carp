@@ -120,8 +120,13 @@ export const apiKeys = {
     return results.flatMap(r => r.results);
   },
 
-  async list(db: D1Database, providerId?: number): Promise<ApiKey[]> {
+  async list(db: D1Database, providerId?: number, status?: 'active' | 'invalid'): Promise<ApiKey[]> {
     if (providerId) {
+      if (status) {
+        const result = await db.prepare('SELECT * FROM api_keys WHERE provider_id = ? AND status = ?')
+          .bind(providerId, status).all<ApiKey>();
+        return result.results;
+      }
       const result = await db.prepare('SELECT * FROM api_keys WHERE provider_id = ?').bind(providerId).all<ApiKey>();
       return result.results;
     } else {

@@ -81,6 +81,25 @@ app.get('/', async (c) => {
   });
 });
 
+// GET /providers/:name/keys/export
+app.get('/export', async (c) => {
+  const provider = c.get('provider');
+  const query = c.req.query();
+  const status = query.status as 'active' | 'invalid' | undefined;
+  if (status && status !== 'active' && status !== 'invalid') {
+    throw new HTTPException(400, { message: "Invalid parameter 'status': must be 'active' or 'invalid'" });
+  }
+
+  const allKeys = await apiKeys.list(c.env.DB, provider.id, status);
+  const textContent = allKeys.map(k => k.key).join('\n');
+
+  return new Response(textContent, {
+    headers: {
+      'Content-Type': 'text/plain',
+    },
+  });
+});
+
 // POST /providers/:name/keys
 app.post('/', async (c) => {
   const provider = c.get('provider');
