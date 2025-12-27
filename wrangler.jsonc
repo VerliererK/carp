@@ -15,7 +15,7 @@
         {
             "binding": "DB",
             "database_name": "carp-db",
-            "database_id": "68102c87-b992-490f-8409-b21f28fc86aa",
+            "database_id": "e3759c4f-8af1-41a1-b0d9-bd9ca6991542",
             "migrations_dir": "migrations"
         }
     ],
