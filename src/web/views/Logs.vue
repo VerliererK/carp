@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue';
 import { listLogs, listProviders, type LogFilters } from '@/api';
 import type { RequestLog, Provider } from '@shared/types';
 import BaseModal from '@/components/BaseModal.vue';
+import PaginationBar from '@/components/PaginationBar.vue';
 
 // State
 const logs = ref<RequestLog[]>([]);
@@ -34,38 +35,7 @@ const dateRangeError = computed(() => {
   return null;
 });
 
-const totalPages = computed(() => {
-  const safeLimit = Math.max(1, limit.value || 1);
-  const pages = Math.ceil((total.value || 0) / safeLimit);
-  return Math.max(1, pages);
-});
-
 const offset = computed(() => (page.value - 1) * limit.value);
-
-const paginationItems = computed(() => {
-  const pages = totalPages.value;
-  const current = Math.min(Math.max(1, page.value), pages);
-  if (pages <= 7) {
-    return Array.from({ length: pages }, (_, i) => ({ type: 'page' as const, value: i + 1 }));
-  }
-
-  const items: Array<{ type: 'page'; value: number } | { type: 'gap'; key: string }> = [];
-  const pushGap = (key: string) => items.push({ type: 'gap', key });
-  const pushPage = (value: number) => items.push({ type: 'page', value });
-
-  pushPage(1);
-
-  const left = Math.max(2, current - 1);
-  const right = Math.min(pages - 1, current + 1);
-
-  if (left > 2) pushGap('left');
-  for (let p = left; p <= right; p++) pushPage(p);
-  if (right < pages - 1) pushGap('right');
-
-  pushPage(pages);
-
-  return items;
-});
 
 // Methods
 const fetchProviders = async () => {
@@ -148,16 +118,16 @@ const openDetails = (log: RequestLog) => {
   showDetails.value = true;
 };
 
-const goToPage = (next: number) => {
-  const clamped = Math.min(Math.max(1, next), totalPages.value);
-  if (clamped === page.value) return;
-  page.value = clamped;
+const onPageChange = (next: number) => {
+  page.value = next;
   fetchLogs();
 };
 
-watch(limit, () => {
-  applyFilters();
-});
+const onLimitChange = (next: number) => {
+  limit.value = next;
+  page.value = 1;
+  fetchLogs();
+};
 
 watch([provider, status], () => {
   page.value = 1;
@@ -302,43 +272,8 @@ onMounted(() => {
     </div>
 
     <!-- Pagination -->
-    <div class="flex pt-2 border-t border-border-subtle">
-      <div class="flex items-center">
-        <button class="pagination-btn" :disabled="loading || page <= 1" @click="goToPage(page - 1)"
-          aria-label="Previous">
-          <Icon icon="lucide:chevron-left" class="w-4 h-4" />
-        </button>
-
-        <div class="flex items-center gap-1">
-          <template v-for="item in paginationItems" :key="item.type === 'page' ? item.value : item.key">
-            <button v-if="item.type === 'page'" class="pagination-page"
-              :class="item.value === page ? 'pagination-page--active' : ''" :disabled="loading"
-              @click="goToPage(item.value)" :aria-label="`Page ${item.value}`">
-              {{ item.value }}
-            </button>
-            <div v-else class="pagination-gap" aria-hidden="true">
-              <Icon icon="lucide:more-horizontal" class="w-4 h-4" />
-            </div>
-          </template>
-        </div>
-
-        <button class="pagination-btn" :disabled="loading || page >= totalPages" @click="goToPage(page + 1)"
-          aria-label="Next">
-          <Icon icon="lucide:chevron-right" class="w-4 h-4" />
-        </button>
-      </div>
-
-      <!-- Limit -->
-      <div class="block relative ml-1">
-        <Icon icon="lucide:list" class="pagination-select-icon left-2" />
-        <select v-model.number="limit" :disabled="loading" class="pagination-select pr-6" aria-label="Limit">
-          <option v-for="n in limitOptions" :key="n" :value="n">
-            {{ n }}
-          </option>
-        </select>
-        <Icon icon="lucide:chevron-down" class="pagination-select-icon right-2" />
-      </div>
-    </div>
+    <PaginationBar :page="page" :total="total" :limit="limit" :limit-options="limitOptions" :disabled="loading"
+      @update:page="onPageChange" @update:limit="onLimitChange" />
 
     <!-- Details Modal -->
     <BaseModal v-model="showDetails" title="Details">
@@ -404,30 +339,6 @@ onMounted(() => {
 
 .filters-btn {
   @apply p-2 rounded-full hover:bg-card-hover text-text-secondary disabled:opacity-40 disabled:cursor-not-allowed
-}
-
-.pagination-btn {
-  @apply h-6 w-6 inline-flex items-center justify-center rounded-full text-text-secondary hover:bg-card-hover hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors;
-}
-
-.pagination-page {
-  @apply h-6 w-6 p-4 inline-flex items-center justify-center rounded-full text-text-secondary hover:bg-card-hover hover:text-text-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-mono tabular-nums;
-}
-
-.pagination-page--active {
-  @apply bg-card-hover font-medium text-text-primary border-border-focus;
-}
-
-.pagination-gap {
-  @apply h-6 w-6 inline-flex items-center justify-center text-text-tertiary;
-}
-
-.pagination-select-icon {
-  @apply pointer-events-none absolute w-4 h-4 top-1/2 -translate-y-1/2 text-text-tertiary;
-}
-
-.pagination-select {
-  @apply h-9 pl-8 bg-card border border-border-subtle rounded-xl text-text-secondary appearance-none outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-mono tabular-nums;
 }
 
 .status-badge {
