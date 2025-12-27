@@ -1,5 +1,5 @@
 import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
-import type { Provider } from '@shared/types';
+import type { Provider, ApiKey } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
 const API_BASE = '/api/admin';
@@ -96,6 +96,109 @@ export async function deleteProvider(name: string): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to delete provider');
+}
+
+// ========== Provider Keys API ==========
+
+export interface KeysResponse {
+  keys: ApiKey[];
+  total: number;
+  limit: number;
+  offset: number;
+  summary: {
+    total: number;
+    active: number;
+    invalid: number;
+    total_requests: number;
+    total_failures: number;
+  };
+}
+
+export async function listKeys(
+  providerName: string,
+  filters?: { limit?: number; offset?: number; q?: string; status?: 'active' | 'invalid' | 'all'; sort?: string; order?: 'asc' | 'desc' }
+): Promise<KeysResponse> {
+  const params = new URLSearchParams();
+  if (filters?.limit) params.append('limit', filters.limit.toString());
+  if (filters?.offset) params.append('offset', filters.offset.toString());
+  if (filters?.q) params.append('q', filters.q);
+  if (filters?.status && filters.status !== 'all') params.append('status', filters.status);
+  if (filters?.sort) params.append('sort', filters.sort);
+  if (filters?.order) params.append('order', filters.order);
+
+  const url = `${API_BASE}/providers/${providerName}/keys${params.toString() ? '?' + params.toString() : ''}`;
+  const response = await authorizedFetch(url);
+  if (!response.ok) throw new Error('Failed to fetch keys');
+  return await response.json();
+}
+
+export async function createKeys(providerName: string, keys: string[]): Promise<{ keys: ApiKey[]; message: string }> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(keys),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to create keys');
+  }
+  return await response.json();
+}
+
+export async function getKey(providerName: string, keyId: number): Promise<ApiKey> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}`);
+  if (!response.ok) throw new Error('Key not found');
+  const result = await response.json();
+  return result.key;
+}
+
+export async function updateKey(providerName: string, keyId: number, data: Partial<ApiKey>): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to update key');
+  }
+}
+
+export async function deleteKey(providerName: string, keyId: number): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete key');
+}
+
+export async function resetProviderKeys(providerName: string): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/reset`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.error || 'Failed to reset provider keys');
+  }
+}
+
+export async function resetKey(providerName: string, keyId: number): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}/reset`, {
+    method: 'POST',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.error || 'Failed to reset key');
+  }
+}
+
+export async function testKey(providerName: string, keyId: number): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}/test`, {
+    method: 'GET',
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.error || 'Failed to test key');
+  }
 }
 
 // ========== Logs API ==========

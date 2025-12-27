@@ -7,10 +7,12 @@ interface Props {
   modelValue: boolean;
   provider?: Provider | null; // If provided, we are in edit mode
   loading?: boolean;
+  lockName?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  loading: false
+  loading: false,
+  lockName: false,
 });
 
 const emit = defineEmits<{
@@ -36,34 +38,42 @@ const error = ref<string | null>(null);
 const isEditMode = computed(() => !!props.provider);
 const title = computed(() => isEditMode.value ? 'Edit Provider' : 'New Provider');
 
-// Initialize form when dialog opens or provider changes
-watch(() => props.provider, (newVal) => {
-  if (newVal) {
+const initForm = (provider?: Provider | null) => {
+  if (provider) {
     const data = {
-      name: newVal.name,
-      type: newVal.type,
-      base_url: newVal.base_url,
-      custom_headers: newVal.custom_headers || '',
-      test_path: newVal.test_path || '',
-      test_model: newVal.test_model || '',
-      enabled: newVal.enabled
+      name: provider.name,
+      type: provider.type,
+      base_url: provider.base_url,
+      custom_headers: provider.custom_headers || '',
+      test_path: provider.test_path || '',
+      test_model: provider.test_model || '',
+      enabled: provider.enabled
     };
     form.value = { ...data };
     initialForm.value = { ...data };
-  } else {
-    // Reset to defaults
-    const defaults = {
-      name: '',
-      type: 'openai',
-      base_url: '',
-      custom_headers: '',
-      test_path: '',
-      test_model: '',
-      enabled: 1
-    };
-    form.value = { ...defaults };
-    initialForm.value = null; // No initial form for create mode
+    error.value = null;
+    return;
   }
+
+  const defaults = {
+    name: '',
+    type: 'openai',
+    base_url: '',
+    custom_headers: '',
+    test_path: '',
+    test_model: '',
+    enabled: 1
+  };
+  form.value = { ...defaults };
+  initialForm.value = null;
+  error.value = null;
+};
+
+// Re-init each time dialog opens (so cancel doesn't keep dirty state),
+// and also when provider changes while open.
+watch([() => props.modelValue, () => props.provider], ([open]) => {
+  if (!open) return;
+  initForm(props.provider);
 }, { immediate: true });
 
 const close = () => {
@@ -102,12 +112,16 @@ const handleSave = () => {
   };
 
   if (isEditMode.value && initialForm.value) {
+    if (props.lockName) {
+      currentData.name = initialForm.value.name;
+    }
+
     // Diff: only send changed fields
     const updates: Partial<Omit<Provider, 'id'>> = {};
     let hasChanges = false;
 
     // Check basic fields
-    if (currentData.name !== initialForm.value.name) { updates.name = currentData.name; hasChanges = true; }
+    if (!props.lockName && currentData.name !== initialForm.value.name) { updates.name = currentData.name; hasChanges = true; }
     if (currentData.type !== initialForm.value.type) { updates.type = currentData.type; hasChanges = true; }
     if (currentData.base_url !== initialForm.value.base_url) { updates.base_url = currentData.base_url; hasChanges = true; }
     if (currentData.enabled !== initialForm.value.enabled) { updates.enabled = currentData.enabled; hasChanges = true; }
@@ -150,7 +164,7 @@ const handleSave = () => {
       <div class="grid grid-cols-2 gap-4">
         <div class="space-y-1.5">
           <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Name</label>
-          <input v-model="form.name" type="text"
+          <input v-model="form.name" type="text" :disabled="lockName && isEditMode"
             class="w-full px-3 py-2 rounded-xl bg-app border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
             placeholder="e.g. openai" />
         </div>
