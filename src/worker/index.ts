@@ -3,6 +3,7 @@ import { bearerAuth } from 'hono/bearer-auth'
 import { HTTPException } from 'hono/http-exception';
 import apiRoutes from './api';
 import { proxyHandler } from './api/proxy';
+import { requestLogs } from './lib/db';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -39,4 +40,17 @@ app.use('/proxy/*', authMiddleware);
 app.all('/proxy/:provider/*', proxyHandler);
 app.route('/api', apiRoutes);
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const retentionDays = 7;
+    const task = (async () => {
+      const deleted = await requestLogs.deleteOlderThan(env.DB, retentionDays);
+      if (deleted > 0) {
+        console.info(`[scheduled] deleted ${deleted} request log(s)`);
+      }
+    })();
+
+    ctx.waitUntil(task);
+  }
+};
