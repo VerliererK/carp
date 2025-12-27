@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
 import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, testKey, getProvider, updateProvider } from '@/api';
 import type { ApiKey, Provider } from '@shared/types';
@@ -10,6 +11,7 @@ import ProviderDialog from '@/components/ProviderDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const keys = ref<ApiKey[]>([]);
 const summary = ref<{ total: number; active: number; invalid: number; total_requests: number; total_failures: number }>({
@@ -38,6 +40,7 @@ const copyUrl = async () => {
     setTimeout(() => copied.value = false, 2000);
   } catch (err) {
     console.error('Failed to copy:', err);
+    toast.error('Failed to copy to clipboard');
   }
 };
 
@@ -52,6 +55,7 @@ const copyKey = async (key: ApiKey) => {
     }, 2000);
   } catch (err) {
     console.error('Failed to copy:', err);
+    toast.error('Failed to copy to clipboard');
   }
 };
 
@@ -200,7 +204,7 @@ const fetchKeys = async () => {
     total.value = res.total;
     if (res.summary) summary.value = res.summary;
   } catch (e: any) {
-    alert(e.message || 'Failed to load keys');
+    toast.error(e.message || 'Failed to load keys');
   } finally {
     loading.value = false;
   }
@@ -239,7 +243,7 @@ const openEditProviderDialog = async () => {
     editingProvider.value = await getProvider(name);
     showEditProviderDialog.value = true;
   } catch (e: any) {
-    alert(e.message || 'Failed to load provider');
+    toast.error(e.message || 'Failed to load provider');
   } finally {
     savingProvider.value = false;
   }
@@ -252,9 +256,10 @@ const handleSaveProvider = async (data: Partial<Omit<Provider, 'id'>>) => {
     savingProvider.value = true;
     const { name: _ignoredName, ...updates } = data;
     await updateProvider(editingProvider.value.name, updates);
+    toast.success('Provider settings saved');
     showEditProviderDialog.value = false;
   } catch (e: any) {
-    alert(e.message || 'Failed to save provider');
+    toast.error(e.message || 'Failed to save provider');
   } finally {
     savingProvider.value = false;
   }
@@ -272,9 +277,9 @@ const handleTestKey = async (key: ApiKey) => {
     setTimeout(() => {
       if (testedKeyId.value === key.id) testedKeyId.value = null;
     }, 2000);
-    alert('Key test succeeded');
+    toast.success('Key test succeeded');
   } catch (e: any) {
-    alert(e.message || 'Failed to test key');
+    toast.error(e.message || 'Failed to test key');
   } finally {
     if (testingKeyId.value === key.id) testingKeyId.value = null;
   }
@@ -313,7 +318,7 @@ const handleCreateKeys = async () => {
   if (!providerName.value) return;
   const keysToCreate = parsedAddKeys.value;
   if (keysToCreate.length === 0) {
-    alert('Please paste at least one key (one per line).');
+    toast.warning('Please paste at least one key (one per line).');
     return;
   }
   try {
@@ -321,10 +326,10 @@ const handleCreateKeys = async () => {
     const res = await createKeys(providerName.value, keysToCreate);
     addKeysDialogOpen.value = false;
     clearAddKeys();
-    alert(res.message || `Created ${res.keys.length} keys`);
+    toast.success(res.message || `Created ${res.keys.length} keys`);
     await fetchKeys();
   } catch (e: any) {
-    alert(e.message || 'Failed to create keys');
+    toast.error(e.message || 'Failed to create keys');
   } finally {
     actionLoading.value = false;
   }
@@ -354,9 +359,10 @@ const handleResetProviderKeys = async () => {
     actionLoading.value = true;
     await resetProviderKeys(providerName.value);
     resetAllDialogOpen.value = false;
+    toast.success('All provider keys stats reset');
     await fetchKeys();
   } catch (e: any) {
-    alert(e.message || 'Failed to reset provider keys');
+    toast.error(e.message || 'Failed to reset provider keys');
   } finally {
     actionLoading.value = false;
   }
@@ -369,9 +375,10 @@ const handleResetKey = async () => {
     await resetKey(providerName.value, selectedKey.value.id);
     resetKeyDialogOpen.value = false;
     clearSelectedKey();
+    toast.success('Key stats reset');
     await fetchKeys();
   } catch (e: any) {
-    alert(e.message || 'Failed to reset key');
+    toast.error(e.message || 'Failed to reset key');
   } finally {
     actionLoading.value = false;
   }
@@ -385,9 +392,10 @@ const handleDeleteKey = async () => {
     deleteKeyDialogOpen.value = false;
     clearSelectedKey();
     if (keys.value.length <= 1 && page.value > 1) page.value -= 1;
+    toast.success('Key deleted successfully');
     await fetchKeys();
   } catch (e: any) {
-    alert(e.message || 'Failed to delete key');
+    toast.error(e.message || 'Failed to delete key');
   } finally {
     actionLoading.value = false;
   }

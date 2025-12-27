@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
 import { listProviders, createProvider, toggleProvider, updateProvider, deleteProvider } from '@/api';
 import type { Provider } from '@shared/types';
@@ -9,6 +10,7 @@ import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ProviderDialog from '@/components/ProviderDialog.vue';
 
 const router = useRouter();
+const toast = useToast();
 
 const providers = ref<(Provider & { keys_count: number })[]>([]);
 
@@ -32,7 +34,7 @@ const handleToggle = async (id: number) => {
     await toggleProvider(provider.name, nextEnabled === 1);
     provider.enabled = nextEnabled;
   } catch (e: any) {
-    alert(e.message || 'Failed to toggle provider');
+    toast.error(e.message || 'Failed to toggle provider');
   }
 };
 
@@ -56,10 +58,11 @@ const handleSaveProvider = async (data: Partial<Omit<Provider, 'id'>>) => {
     } else {
       await createProvider(data as Omit<Provider, 'id'>);
     }
+    toast.success('Provider saved successfully');
     showEditDialog.value = false;
     await getProviders();
   } catch (e: any) {
-    alert(e.message || 'Failed to save provider');
+    toast.error(e.message || 'Failed to save provider');
   } finally {
     savingProvider.value = false;
   }
@@ -83,10 +86,11 @@ const confirmDelete = async () => {
   try {
     deleting.value = true;
     await deleteProvider(providerToDelete.value.name);
+    toast.success('Provider deleted successfully');
     await getProviders();
     resetDeleteDialog();
   } catch (e: any) {
-    alert(e.message || 'Failed to delete provider');
+    toast.error(e.message || 'Failed to delete provider');
   } finally {
     deleting.value = false;
   }
