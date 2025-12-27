@@ -285,6 +285,11 @@ export const apiKeys = {
     }
   },
 
+  async recordFailure(db: D1Database, id: number, maxFailures: number): Promise<void> {
+    await db.prepare(`UPDATE api_keys SET failure_count = failure_count + 1, status = CASE WHEN failure_count + 1 > ? THEN 'invalid' ELSE status END WHERE id = ?`)
+      .bind(maxFailures, id).run();
+  },
+
   // List least-recently-used active keys (concise alias of the above behavior)
   async listLRU(
     db: D1Database,

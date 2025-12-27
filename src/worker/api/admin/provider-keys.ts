@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { providers, apiKeys } from '../../lib/db';
+import { getMaxKeyFailures } from '../../lib/configs';
 import type { Provider, ApiKey } from '@shared/types';
 
 const app = new Hono<{ Bindings: Env, Variables: { provider: Provider } }>();
@@ -219,6 +220,8 @@ app.get('/:keyId/test', async (c) => {
   });
 
   if (!response.ok) {
+    const maxKeyFailures = await getMaxKeyFailures(c.env.DB);
+    await apiKeys.recordFailure(c.env.DB, keyId, maxKeyFailures);
     const errorText = await response.text();
     return c.json({ success: false, status: response.status, error: errorText }, 400);
   }

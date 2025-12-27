@@ -1,10 +1,8 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Provider, RequestLog } from '@shared/types';
-import { systemSettings, providers, apiKeys, requestLogs } from '../lib/db';
-
-const DEFAULT_MAX_ATTEMPTS = 3;
-const DEFAULT_MAX_FAILURES = 3;
+import { providers, apiKeys, requestLogs } from '../lib/db';
+import { getMaxAttempts, getMaxKeyFailures } from '../lib/configs';
 
 export const proxyHandler = async (c: Context) => {
   const url = new URL(c.req.url);
@@ -20,10 +18,8 @@ export const proxyHandler = async (c: Context) => {
   if (provider.enabled !== 1) throw new HTTPException(403, { message: 'Provider is disabled' });
 
   // Configuration
-  const maxAttemptsSetting = await systemSettings.get(c.env.DB, 'max_attempts');
-  const maxAttempts = Math.max(1, parseInt(maxAttemptsSetting?.value || '') || DEFAULT_MAX_ATTEMPTS);
-  const maxKeyFailuresSetting = await systemSettings.get(c.env.DB, 'maxKeyFailures');
-  const maxKeyFailures = Math.max(1, parseInt(maxKeyFailuresSetting?.value || '') || DEFAULT_MAX_FAILURES);
+  const maxAttempts = await getMaxAttempts(c.env.DB);
+  const maxKeyFailures = await getMaxKeyFailures(c.env.DB);
   const recordUsage = (key: number, success: boolean) => apiKeys.recordUsage(c.env.DB, key, success, maxKeyFailures);
   const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
 
