@@ -192,13 +192,31 @@ export async function resetKey(providerName: string, keyId: number): Promise<voi
 }
 
 export async function testKey(providerName: string, keyId: number): Promise<void> {
-  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}/test`, {
-    method: 'GET',
-  });
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/${keyId}/test`);
   if (!response.ok) {
     const error = await response.json().catch(() => { });
     throw new Error(error?.error || 'Failed to test key');
   }
+}
+
+export async function exportKeys(providerName: string, status?: 'active' | 'invalid'): Promise<void> {
+  const queryString = status ? `?status=${status}` : '';
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/export${queryString}`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.message || 'Failed to export keys');
+  }
+
+  const filename = `${providerName}-keys${status ? '-' + status : ''}.txt`;
+  const blob = await response.blob();
+  const downloadUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(downloadUrl);
 }
 
 // ========== Logs API ==========

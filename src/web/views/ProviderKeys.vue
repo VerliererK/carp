@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
-import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, testKey, getProvider, updateProvider } from '@/api';
+import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, testKey, getProvider, updateProvider, exportKeys } from '@/api';
 import type { ApiKey, Provider } from '@shared/types';
 import PaginationBar from '@/components/PaginationBar.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -74,6 +74,47 @@ const resetToolbar = () => {
   statusFilter.value = 'all';
   page.value = 1;
   if (!statusChanged && appliedChanged) fetchKeys();
+};
+
+// Menu
+const menuOpen = ref(false);
+
+const togglemenu = () => {
+  menuOpen.value = !menuOpen.value;
+};
+
+const handleFocusOut = (event: FocusEvent) => {
+  const wrapper = event.currentTarget as HTMLElement;
+  const relatedTarget = event.relatedTarget as Node | null;
+
+  if (!menuOpen.value || (relatedTarget && wrapper.contains(relatedTarget))) {
+    return;
+  }
+  menuOpen.value = false;
+};
+
+const handleDownload = async (status?: 'active' | 'invalid') => {
+  if (!providerName.value) return;
+  try {
+    actionLoading.value = true;
+    menuOpen.value = false;
+    await exportKeys(providerName.value, status);
+    toast.success('Keys exported successfully');
+  } catch (e: any) {
+    toast.error(e.message || 'Failed to export keys');
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
+const handleTestKeys = () => {
+  toast.info('Feature coming soon: Test Keys');
+  menuOpen.value = false;
+};
+
+const handleDeleteKeys = () => {
+  toast.info('Feature coming soon: Delete Keys');
+  menuOpen.value = false;
 };
 
 // Pagination
@@ -504,6 +545,44 @@ const handleDeleteKey = async () => {
           class="text-text-secondary hover:text-text-primary cursor-pointer" title="Reset">
           <Icon icon="lucide:rotate-ccw" class="w-4 h-4" />
         </button>
+
+        <!-- Menu -->
+        <div class="ml-auto relative" @focusout="handleFocusOut">
+          <button ref="menuButtonRef" class="row-action-btn" type="button" @click.stop="togglemenu"
+            :disabled="loading || actionLoading">
+            <Icon v-if="actionLoading" icon="lucide:loader-2" class="w-5 h-5 animate-spin" />
+            <Icon v-else icon="lucide:more-vertical" class="w-5 h-5" />
+          </button>
+
+          <!-- Dropdown Menu -->
+          <div v-if="menuOpen" ref="menuDropdownRef"
+            class="absolute right-0 top-full mt-2 w-64 bg-card border border-border-subtle rounded-xl z-20 overflow-hidden flex flex-col origin-top-right">
+
+            <button @click="handleDownload()" class="menu-item">
+              <Icon icon="lucide:download" class="w-4 h-4" />
+              <span>Download All Keys</span>
+            </button>
+            <button @click="handleDownload('active')" class="menu-item">
+              <Icon icon="lucide:circle-check" class="w-4 h-4" />
+              <span>Download Active Keys</span>
+            </button>
+            <button @click="handleDownload('invalid')" class="menu-item">
+              <Icon icon="lucide:circle-x" class="w-4 h-4" />
+              <span>Download Invalid Keys</span>
+            </button>
+
+            <div class="h-px bg-border-subtle my-1 mx-2"></div>
+
+            <button @click="handleTestKeys" class="menu-item">
+              <Icon icon="lucide:zap" class="w-4 h-4" />
+              <span>Test All Keys</span>
+            </button>
+            <button @click="handleDeleteKeys" class="menu-item menu-item-danger">
+              <Icon icon="lucide:trash-2" class="w-4 h-4" />
+              <span>Delete Keys</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- Desktop Table -->
@@ -743,5 +822,13 @@ const handleDeleteKey = async () => {
 
 .action-primary {
   @apply bg-brand text-brand-on font-bold shadow-sm hover:opacity-90;
+}
+
+.menu-item {
+  @apply w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary hover:bg-card-hover text-left cursor-pointer;
+}
+
+.menu-item-danger {
+  @apply text-status-error-text hover:text-status-error-text;
 }
 </style>
