@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
@@ -21,6 +21,27 @@ const deleting = ref(false);
 const showEditDialog = ref(false);
 const editingProvider = ref<Provider | null>(null);
 const savingProvider = ref(false);
+
+const stats = computed(() => [
+  {
+    key: 'total',
+    value: providers.value.length,
+    icon: 'lucide:network',
+    iconClass: 'text-brand',
+  },
+  {
+    key: 'active',
+    value: providers.value.filter((p) => p.enabled === 1).length,
+    icon: 'lucide:shield-check',
+    iconClass: 'text-status-success-text',
+  },
+  {
+    key: 'keys',
+    value: providers.value.reduce((acc, p) => acc + p.keys_count, 0),
+    icon: 'lucide:key',
+    iconClass: 'text-text-secondary',
+  },
+]);
 
 const getProviders = async () => {
   providers.value = await listProviders();
@@ -106,7 +127,21 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex items-center justify-end mb-4 -mt-2 md:-mt-4">
+  <div class="flex items-center justify-between mb-6">
+    <!-- Stats Group -->
+    <div
+      class="w-auto flex items-center gap-4 py-2.5 px-4 bg-card border border-border-subtle rounded-2xl shadow-lg shadow-black/5">
+      <template v-for="(stat, idx) in stats" :key="stat.key">
+        <div class="flex flex-row items-center gap-1">
+          <div class="flex items-center justify-center px-2" :class="stat.iconClass">
+            <Icon :icon="stat.icon" class="w-5 h-5" />
+          </div>
+          <span class="text-lg font-bold font-mono leading-none">{{ stat.value }}</span>
+        </div>
+        <div v-if="idx < stats.length - 1" class="hidden md:block w-px h-8 bg-border-subtle/50"></div>
+      </template>
+    </div>
+
     <button type="button"
       class="p-2 rounded-full text-text-secondary hover:text-text-primary hover:bg-card-hover transition-colors cursor-pointer"
       @click="handleCreate" title="New Provider">
