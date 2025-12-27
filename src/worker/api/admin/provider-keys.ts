@@ -20,10 +20,65 @@ app.use('*', async (c, next) => {
 });
 
 // GET /providers/:name/keys
+// limit: Number of records to return (default: 100)
+// offset: Pagination offset (default: 0)
+// q: Search key substring
+// status: Filter by key status (active/invalid)
+// sort: status/key/total_count/failure_count/last_used (default: last_used)
+// order: asc/desc (default: desc)
 app.get('/', async (c) => {
   const provider = c.get('provider');
-  const keys = await apiKeys.list(c.env.DB, provider.id);
-  return c.json(keys);
+  const query = c.req.query();
+
+  const limit = parseInt(query.limit || '100');
+  if (isNaN(limit) || limit <= 0 || limit > 100) throw new HTTPException(400, { message: "Invalid parameter 'limit': must be between 1 and 100" });
+
+  const offset = parseInt(query.offset || '0');
+  if (isNaN(offset) || offset < 0) throw new HTTPException(400, { message: "Invalid parameter 'offset': must be greater than or equal to 0" });
+
+  const options: any = {
+    limit,
+    offset
+  };
+
+  if (query.status) {
+    const status = query.status.trim().toLowerCase();
+    if (status !== 'active' && status !== 'invalid') throw new HTTPException(400, { message: "Invalid parameter 'status': must be 'active' or 'invalid'" });
+    options.status = status;
+  }
+
+  if (query.sort) {
+    const sort = query.sort.trim().toLowerCase();
+    const sortType = ['status', 'key', 'total_count', 'failure_count', 'last_used'];
+    const allowedSort = new Set(sortType);
+    if (!allowedSort.has(sort)) throw new HTTPException(400, { message: `Invalid parameter 'sort': must be one of ${sortType.join(',')}` });
+    options.sort = sort;
+  }
+
+  if (query.order) {
+    const order = query.order.trim().toLowerCase();
+    if (order !== 'asc' && order !== 'desc') throw new HTTPException(400, { message: "Invalid parameter 'order': must be 'asc' or 'desc'" });
+    options.order = order;
+  }
+
+  if (query.q) {
+    const q = query.q.trim();
+    if (q.length > 200) throw new HTTPException(400, { message: "Invalid parameter 'q': must be 200 characters or less" });
+    options.q = q;
+  }
+
+  const [result, summary] = await Promise.all([
+    apiKeys.listWithFilters(c.env.DB, provider.id, options),
+    apiKeys.summaryByProvider(c.env.DB, provider.id),
+  ]);
+
+  return c.json({
+    keys: result.keys,
+    total: result.total,
+    limit,
+    offset,
+    summary,
+  });
 });
 
 // POST /providers/:name/keys

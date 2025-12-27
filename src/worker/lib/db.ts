@@ -130,6 +130,110 @@ export const apiKeys = {
     }
   },
 
+  async listWithFilters(
+    db: D1Database,
+    providerId: number,
+    options: {
+      limit?: number;
+      offset?: number;
+      q?: string;
+      status?: 'active' | 'invalid';
+      sort?: 'status' | 'key' | 'total_count' | 'failure_count' | 'last_used';
+      order?: 'asc' | 'desc';
+    } = {}
+  ): Promise<{ keys: ApiKey[]; total: number }> {
+    const limit = Math.min(options.limit ?? 100, 1000);
+    const offset = options.offset ?? 0;
+    const status = options.status;
+    const q = options.q?.trim();
+
+    const conditions: string[] = ['provider_id = ?'];
+    const params: any[] = [providerId];
+
+    if (status) {
+      conditions.push('status = ?');
+      params.push(status);
+    }
+
+    if (q) {
+      conditions.push('key LIKE ?');
+      params.push(`%${q}%`);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    const countResult = await db.prepare(
+      `SELECT COUNT(*) as total FROM api_keys ${whereClause}`
+    ).bind(...params).first<{ total: number }>();
+
+    const total = countResult?.total || 0;
+
+    const order = options.order === 'asc' ? 'ASC' : 'DESC';
+    const sort = options.sort ?? 'last_used';
+
+    let orderBy = '';
+    switch (sort) {
+      case 'status':
+      case 'key':
+      case 'total_count':
+      case 'failure_count': {
+        orderBy = `ORDER BY ${sort} ${order}, id ${order}`;
+        break;
+      }
+      case 'last_used':
+      default: {
+        if (order === 'ASC') {
+          orderBy = `ORDER BY (last_used IS NULL) DESC, last_used ASC, id ASC`;
+        } else {
+          orderBy = `ORDER BY (last_used IS NULL) ASC, last_used DESC, id DESC`;
+        }
+        break;
+      }
+    }
+
+    const keysResult = await db.prepare(
+      `SELECT * FROM api_keys ${whereClause} ${orderBy} LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all<ApiKey>();
+
+    return { keys: keysResult.results, total };
+  },
+
+  async summaryByProvider(
+    db: D1Database,
+    providerId: number
+  ): Promise<{
+    total: number;
+    active: number;
+    invalid: number;
+    total_requests: number;
+    total_failures: number;
+  }> {
+    const row = await db.prepare(`
+      SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active,
+        COALESCE(SUM(CASE WHEN status = 'invalid' THEN 1 ELSE 0 END), 0) AS invalid,
+        COALESCE(SUM(total_count), 0) AS total_requests,
+        COALESCE(SUM(failure_count), 0) AS total_failures
+      FROM api_keys
+      WHERE provider_id = ?
+    `).bind(providerId).first<{
+      total: number;
+      active: number;
+      invalid: number;
+      total_requests: number;
+      total_failures: number;
+    }>();
+
+    return {
+      total: row?.total ?? 0,
+      active: row?.active ?? 0,
+      invalid: row?.invalid ?? 0,
+      total_requests: row?.total_requests ?? 0,
+      total_failures: row?.total_failures ?? 0,
+    };
+  },
+
   async get(db: D1Database, id: number): Promise<ApiKey | null> {
     const result = await db.prepare('SELECT * FROM api_keys WHERE id = ?').bind(id).first<ApiKey>();
     return result;
