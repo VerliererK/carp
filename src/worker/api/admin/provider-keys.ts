@@ -198,26 +198,39 @@ app.get('/:keyId/test', async (c) => {
     throw new HTTPException(404, { message: 'API Key not found for this provider' });
   }
 
-  const { base_url, test_path, test_model } = provider;
+  const { base_url, type, test_path, test_model } = provider;
   const baseUrl = base_url.replace(/\/+$/, '');
-  const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
-  const testUrl = `${baseUrl}/${testPath}`;
-  const response = await fetch(testUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${key.key}`
-    },
-    body: JSON.stringify({
-      model: test_model,
-      messages: [{
-        role: 'user',
-        content: 'Hi',
-      }],
-      stream: false,
-      max_tokens: 64
-    })
-  });
+  let response: Response;
+  if (type === 'gemini') {
+    const testUrl = `${baseUrl}/v1beta/models/${test_model}:generateContent`;
+    response = await fetch(testUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': `${key.key}`
+      },
+      body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] })
+    });
+  } else {
+    const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
+    const testUrl = `${baseUrl}/${testPath}`;
+    response = await fetch(testUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key.key}`
+      },
+      body: JSON.stringify({
+        model: test_model,
+        messages: [{
+          role: 'user',
+          content: 'Hi',
+        }],
+        stream: false,
+        max_tokens: 64
+      })
+    });
+  }
 
   if (!response.ok) {
     const maxKeyFailures = await getMaxKeyFailures(c.env.DB);

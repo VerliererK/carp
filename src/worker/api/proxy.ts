@@ -4,6 +4,10 @@ import type { Provider, RequestLog } from '@shared/types';
 import { providers, apiKeys, requestLogs } from '../lib/db';
 import { getMaxAttempts, getMaxKeyFailures } from '../lib/configs';
 
+export const matchGemini = (url: string): boolean => {
+  return url.match(/\/models\/[^/]+:(?:stream)?[Gg]enerateContent/) !== null;
+};
+
 export const proxyHandler = async (c: Context) => {
   const url = new URL(c.req.url);
   const providerName = c.req.param('provider');
@@ -24,12 +28,14 @@ export const proxyHandler = async (c: Context) => {
   const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
 
   // Prepare request
+  const isGemini = matchGemini(url.pathname);
+  if (isGemini) url.searchParams.delete('key');
   const originalPath = url.pathname.slice(`/proxy/${providerName}`.length);
   const baseUrl = provider.base_url.replace(/\/+$/, '');
   const targetUrl = `${baseUrl}${originalPath}${url.search}`;
   const headers = sanitizeHeaders(c.req.raw.headers, provider);
   const body = c.req.raw.body ? await c.req.raw.arrayBuffer() : undefined;
-  const model = body ? getModel(body) : undefined;
+  const model = body ? getModel(url.pathname, body) : undefined;
 
   let lastError: Error | null = null;
   const excludedKeyIds = new Set<number>();
@@ -40,7 +46,11 @@ export const proxyHandler = async (c: Context) => {
     const apiKey = apiKeyPool.length > 0 ? pickRandom(apiKeyPool) : null;
     if (!apiKey) throw new HTTPException(503, { message: 'No available API keys' });
 
-    headers.set('Authorization', `Bearer ${apiKey.key}`);
+    if (isGemini) {
+      headers.set('x-goog-api-key', apiKey.key);
+    } else {
+      headers.set('Authorization', `Bearer ${apiKey.key}`);
+    }
     excludedKeyIds.add(apiKey.id); // Avoid retrying the same key within this request
 
     try {
@@ -115,7 +125,11 @@ function isRetryableStatus(status: number): boolean {
   return status === 401 || status === 429 || status >= 500;
 }
 
-function getModel(body: ArrayBuffer): string | undefined {
+function getModel(url: string, body: ArrayBuffer): string | undefined {
+  if (matchGemini(url)) {
+    const match = url.match(/\/models\/([^/:]+)/);
+    return match ? match[1] : undefined;
+  }
   try {
     const bodyText = new TextDecoder().decode(body);
     const bodyJson = JSON.parse(bodyText) as any;
@@ -129,8 +143,12 @@ async function extractErrorMessage(response: Response): Promise<string> {
   try {
     const contentType = response.headers.get('content-type');
     if (contentType?.includes('application/json')) {
-      const errorBody = (await response.clone().json()) as any;
-      return errorBody.error?.message || errorBody.message || `HTTP ${response.status}`;
+      let errorBody = (await response.clone().json()) as any;
+      if (Array.isArray(errorBody)) {
+        errorBody = errorBody.map(e => e.error?.message || e.message || JSON.stringify(e)).join('; ');
+        return errorBody;
+      }
+      return errorBody.error?.message || errorBody.message || JSON.stringify(errorBody);
     }
   } catch {
     // Cannot parse, ignore

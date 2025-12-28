@@ -1,8 +1,8 @@
-import { Hono } from 'hono';
+import { Hono, MiddlewareHandler } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth'
 import { HTTPException } from 'hono/http-exception';
 import apiRoutes from './api';
-import { proxyHandler } from './api/proxy';
+import { proxyHandler, matchGemini } from './api/proxy';
 import { requestLogs } from './lib/db';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -16,6 +16,25 @@ const authMiddleware = bearerAuth({
     return token === expectedToken;
   }
 });
+
+const geminiAuthMiddleware: MiddlewareHandler = async (c, next) => {
+  const token = c.req.query('key') || c.req.header('x-goog-api-key');
+  const expectedToken = c.env.AUTH_TOKEN;
+  if (!expectedToken) {
+    throw new HTTPException(500, { message: 'AUTH_TOKEN environment variable is not set' });
+  }
+  if (token !== expectedToken) {
+    throw new HTTPException(401, { message: 'Unauthorized' });
+  }
+  return next();
+};
+
+const proxyAuthMiddleware: MiddlewareHandler = async (c, next) => {
+  if (matchGemini(c.req.path)) {
+    return geminiAuthMiddleware(c, next);
+  }
+  return authMiddleware(c, next);
+}
 
 app.onError((err, c) => {
   const { method, url } = c.req;
@@ -36,7 +55,7 @@ app.onError((err, c) => {
 
 // --- Routes ---
 app.use('/api/*', authMiddleware);
-app.use('/proxy/*', authMiddleware);
+app.use('/proxy/*', proxyAuthMiddleware);
 app.all('/proxy/:provider/*', proxyHandler);
 app.route('/api', apiRoutes);
 

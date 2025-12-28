@@ -36,6 +36,7 @@ const initialForm = ref<typeof form.value | null>(null);
 const error = ref<string | null>(null);
 
 const isEditMode = computed(() => !!props.provider);
+const isGemini = computed(() => form.value.type === 'gemini');
 const title = computed(() => isEditMode.value ? 'Edit Provider' : 'New Provider');
 
 const initForm = (provider?: Provider | null) => {
@@ -76,6 +77,10 @@ watch([() => props.modelValue, () => props.provider], ([open]) => {
   initForm(props.provider);
 }, { immediate: true });
 
+watch(() => form.value.type, (type) => {
+  if (type === 'gemini') form.value.test_path = '';
+});
+
 const close = () => {
   if (props.loading) return;
   emit('update:modelValue', false);
@@ -96,6 +101,11 @@ const validate = () => {
   return null;
 };
 
+const normalizeNullableText = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+};
+
 const handleSave = () => {
   error.value = validate();
   if (error.value) return;
@@ -105,9 +115,9 @@ const handleSave = () => {
     name: form.value.name.trim(),
     type: form.value.type.trim(),
     base_url: form.value.base_url.trim(),
-    custom_headers: form.value.custom_headers.trim() || undefined,
-    test_path: form.value.test_path?.trim() || undefined,
-    test_model: form.value.test_model?.trim() || undefined,
+    custom_headers: normalizeNullableText(form.value.custom_headers),
+    test_path: normalizeNullableText(form.value.test_path),
+    test_model: normalizeNullableText(form.value.test_model),
     enabled: form.value.enabled
   };
 
@@ -127,13 +137,13 @@ const handleSave = () => {
     if (currentData.enabled !== initialForm.value.enabled) { updates.enabled = currentData.enabled; hasChanges = true; }
 
     // Check optional fields (treat empty string as same as undefined/null for comparison)
-    const initHeaders = initialForm.value.custom_headers || undefined;
+    const initHeaders = normalizeNullableText(initialForm.value.custom_headers);
     if (currentData.custom_headers !== initHeaders) { updates.custom_headers = currentData.custom_headers; hasChanges = true; }
 
-    const initTestPath = initialForm.value.test_path || undefined;
+    const initTestPath = normalizeNullableText(initialForm.value.test_path);
     if (currentData.test_path !== initTestPath) { updates.test_path = currentData.test_path; hasChanges = true; }
 
-    const initTestModel = initialForm.value.test_model || undefined;
+    const initTestModel = normalizeNullableText(initialForm.value.test_model);
     if (currentData.test_model !== initTestModel) { updates.test_model = currentData.test_model; hasChanges = true; }
 
     if (!hasChanges) {
@@ -174,7 +184,7 @@ const handleSave = () => {
           <select v-model="form.type"
             class="w-full px-3 py-2 rounded-xl bg-app border border-border-subtle text-text-primary focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors appearance-none">
             <option value="openai">openai</option>
-            <option value="google">google</option>
+            <option value="gemini">gemini</option>
           </select>
         </div>
       </div>
@@ -201,9 +211,9 @@ const handleSave = () => {
       <div class="grid grid-cols-2 gap-4">
         <div class="space-y-1.5">
           <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Test Path</label>
-          <input v-model="form.test_path" type="text"
+          <input v-model="form.test_path" type="text" :disabled="isGemini"
             class="w-full px-3 py-2 rounded-xl bg-app border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors text-sm"
-            placeholder="/v1/chat/completions" />
+            :placeholder="isGemini ? '/v1beta/models/{model}:generateContent' : '/v1/chat/completions'" />
         </div>
         <div class="space-y-1.5">
           <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Test Model</label>

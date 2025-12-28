@@ -10,9 +10,9 @@ export interface Provider {
   name: string;            // Provider identifier (e.g., "openai", "gemini")
   type: string;            // API type (e.g., "openai", "gemini")
   base_url: string;        // Base URL for API requests
-  custom_headers?: string; // JSON object of custom headers
-  test_path?: string;      // Path to test API key validity
-  test_model?: string;     // Model to use for testing
+  custom_headers?: string | null; // JSON object of custom headers
+  test_path?: string | null;      // Path to test API key validity
+  test_model?: string | null;     // Model to use for testing
   enabled: number;         // 0 = disabled, 1 = enabled
 }
 
