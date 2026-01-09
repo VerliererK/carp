@@ -277,7 +277,7 @@ export const apiKeys = {
 
   async recordUsage(db: D1Database, id: number, success: boolean, maxFailures: number): Promise<void> {
     if (success) {
-      await db.prepare('UPDATE api_keys SET total_count = total_count + 1, last_used = strftime("%Y-%m-%dT%H:%M:%SZ", "now") WHERE id = ?')
+      await db.prepare('UPDATE api_keys SET total_count = total_count + 1, failure_count = 0, last_used = strftime("%Y-%m-%dT%H:%M:%SZ", "now") WHERE id = ?')
         .bind(id).run();
     } else {
       await db.prepare(`UPDATE api_keys SET total_count = total_count + 1, failure_count = failure_count + 1, last_used = strftime("%Y-%m-%dT%H:%M:%SZ", "now"), status = CASE WHEN failure_count + 1 > ? THEN 'invalid' ELSE status END WHERE id = ?`)
@@ -288,6 +288,11 @@ export const apiKeys = {
   async recordFailure(db: D1Database, id: number, maxFailures: number): Promise<void> {
     await db.prepare(`UPDATE api_keys SET failure_count = failure_count + 1, status = CASE WHEN failure_count + 1 > ? THEN 'invalid' ELSE status END WHERE id = ?`)
       .bind(maxFailures, id).run();
+  },
+
+  async resetFailure(db: D1Database, id: number): Promise<void> {
+    await db.prepare("UPDATE api_keys SET status = 'active', failure_count = 0 WHERE id = ?")
+      .bind(id).run();
   },
 
   // List least-recently-used active keys (concise alias of the above behavior)

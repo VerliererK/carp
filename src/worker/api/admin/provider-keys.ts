@@ -239,6 +239,7 @@ app.get('/:keyId/test', async (c) => {
     return c.json({ success: false, status: response.status, error: errorText }, 400);
   }
 
+  await apiKeys.resetFailure(c.env.DB, keyId);
   return c.json({ success: true, status: response.status });
 });
 
