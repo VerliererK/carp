@@ -171,6 +171,19 @@ export async function deleteKey(providerName: string, keyId: number): Promise<vo
   if (!response.ok) throw new Error('Failed to delete key');
 }
 
+export async function deleteKeys(providerName: string, keys: string[]): Promise<{ message: string }> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(keys),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error.error || 'Failed to delete keys');
+  }
+  return await response.json();
+}
+
 export async function resetProviderKeys(providerName: string): Promise<void> {
   const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/reset`, {
     method: 'POST',

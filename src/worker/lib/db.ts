@@ -263,6 +263,25 @@ export const apiKeys = {
     await db.prepare('DELETE FROM api_keys WHERE id = ?').bind(id).run();
   },
 
+  async deleteKeys(db: D1Database, providerId: number, keys: string[]): Promise<number> {
+    const uniqueKeys = Array.from(new Set(keys.map(k => (typeof k === 'string' ? k.trim() : '')).filter(Boolean)));
+    if (uniqueKeys.length === 0) return 0;
+
+    // Keep well under SQLite/D1 bind parameter limits.
+    const chunkSize = 50;
+    const stmts = [];
+
+    for (let i = 0; i < uniqueKeys.length; i += chunkSize) {
+      const chunk = uniqueKeys.slice(i, i + chunkSize);
+      const placeholders = chunk.map(() => '?').join(',');
+      const sql = `DELETE FROM api_keys WHERE provider_id = ? AND key IN (${placeholders})`;
+      stmts.push(db.prepare(sql).bind(providerId, ...chunk));
+    }
+
+    const results = await db.batch(stmts);
+    return results.reduce((sum, r) => sum + (r.meta?.changes ?? 0), 0);
+  },
+
   async reset(db: D1Database, id: number): Promise<void> {
     await db.prepare(
       "UPDATE api_keys SET status = 'active', total_count = 0, failure_count = 0, last_used = NULL WHERE id = ?"

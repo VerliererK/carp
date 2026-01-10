@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
-import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, testKey, getProvider, updateProvider, exportKeys } from '@/api';
+import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, deleteKeys, testKey, getProvider, updateProvider, exportKeys } from '@/api';
 import type { ApiKey, Provider } from '@shared/types';
 import PaginationBar from '@/components/PaginationBar.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
@@ -112,9 +112,55 @@ const handleTestKeys = () => {
   menuOpen.value = false;
 };
 
+// Batch Delete
+const deleteKeysDialogOpen = ref(false);
+const deleteKeysText = ref('');
+
+const parsedDeleteKeys = computed(() => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const rawLine of deleteKeysText.value.split(/\r?\n/)) {
+    const key = rawLine.trim();
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(key);
+  }
+  return result;
+});
+
+const openDeleteKeysDialog = () => {
+  deleteKeysDialogOpen.value = true;
+};
+
+const clearDeleteKeys = () => {
+  deleteKeysText.value = '';
+};
+
+const handleBatchDeleteKeys = async () => {
+  if (!providerName.value) return;
+  const keysToDelete = parsedDeleteKeys.value;
+  if (keysToDelete.length === 0) {
+    toast.warning('Please paste at least one key (one per line).');
+    return;
+  }
+  try {
+    actionLoading.value = true;
+    const { message } = await deleteKeys(providerName.value, keysToDelete);
+    deleteKeysDialogOpen.value = false;
+    clearDeleteKeys();
+    toast.success(message);
+    await fetchKeys();
+  } catch (e: any) {
+    toast.error(e.message || 'Failed to delete keys');
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
 const handleDeleteKeys = () => {
-  toast.info('Feature coming soon: Delete Keys');
   menuOpen.value = false;
+  openDeleteKeysDialog();
 };
 
 // Pagination
@@ -781,6 +827,15 @@ const handleDeleteKey = async () => {
     @confirm="handleCreateKeys" @cancel="clearAddKeys">
     <div class="space-y-3">
       <textarea v-model="addKeysText" rows="8" placeholder="Paste one key per line."
+        class="w-full px-3 py-2 bg-card border border-border-subtle rounded-xl text-sm font-mono text-text-primary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-brand/10"
+        :disabled="actionLoading"></textarea>
+    </div>
+  </ConfirmDialog>
+
+  <ConfirmDialog v-model="deleteKeysDialogOpen" title="Delete Keys" confirm-text="Delete" :loading="actionLoading"
+    is-danger @confirm="handleBatchDeleteKeys" @cancel="clearDeleteKeys">
+    <div class="space-y-3">
+      <textarea v-model="deleteKeysText" rows="8" placeholder="Paste one key per line."
         class="w-full px-3 py-2 bg-card border border-border-subtle rounded-xl text-sm font-mono text-text-primary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-brand/10"
         :disabled="actionLoading"></textarea>
     </div>

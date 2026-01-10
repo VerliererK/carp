@@ -107,7 +107,7 @@ app.post('/', async (c) => {
   const body = await c.req.json();  // string[]
 
   if (!Array.isArray(body)) {
-    throw new HTTPException(400, { message: 'Request body must be an array of API key objects.' });
+    throw new HTTPException(400, { message: 'Request body must be an array of API key strings.' });
   }
 
   const keysToCreate = body.map((key: string) => ({
@@ -123,6 +123,24 @@ app.post('/', async (c) => {
     keys: createdKeys,
     message: `Created ${createdCount} API Keys, skipped ${skippedCount} duplicates.`
   }, 201);
+});
+
+// POST /providers/:name/keys/delete
+app.post('/delete', async (c) => {
+  const provider = c.get('provider');
+  const body = await c.req.json();  // string[]
+
+  if (!Array.isArray(body)) {
+    throw new HTTPException(400, { message: 'Request body must be an array of API key strings.' });
+  }
+
+  const keysToDelete = body
+    .filter((key): key is string => typeof key === 'string')
+    .map((key) => key.trim())
+    .filter((key) => key.length > 0);
+
+  const deletedKeys = await apiKeys.deleteKeys(c.env.DB, provider.id, keysToDelete);
+  return c.json({ message: `${deletedKeys} API Keys deleted` });
 });
 
 // POST /providers/:name/keys/reset
