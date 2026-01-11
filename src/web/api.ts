@@ -98,6 +98,26 @@ export async function deleteProvider(name: string): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete provider');
 }
 
+export async function listProviderModels(providerName: string, providerType: string): Promise<any> {
+  let url = `/proxy/${providerName}/v1/models`;
+  if (providerType === 'gemini') url = `/proxy/${providerName}/v1beta/models`;
+  const response = await authorizedFetch(url);
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.error?.message || error?.message || 'Failed to fetch models');
+  }
+  const json = await response.json();
+  if (!json) throw new Error('Invalid response from provider');
+
+  if (Array.isArray(json.data)) {
+    return json.data.map((m: any) => m.id).filter(Boolean);
+  }
+  if (Array.isArray(json.models)) {
+    return json.models.map((m: any) => m.name.replace('models/', '')).filter(Boolean);
+  }
+  return json;
+}
+
 // ========== Provider Keys API ==========
 
 export interface KeysResponse {

@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
+import { useToast } from '@/composables/useToast';
+import { Icon } from '@iconify/vue';
 import type { Provider } from '@shared/types';
+import { listProviderModels } from '@/api';
 import BaseModal from './BaseModal.vue';
 
 interface Props {
@@ -9,6 +12,8 @@ interface Props {
   loading?: boolean;
   lockName?: boolean;
 }
+
+const toast = useToast();
 
 const props = withDefaults(defineProps<Props>(), {
   loading: false,
@@ -29,6 +34,12 @@ const form = ref({
   test_model: '',
   enabled: 1
 });
+
+// Models fetching state
+const showModels = ref(false);
+const loadingModels = ref(false);
+const modelsList = ref<string[]>([]);
+const modelsError = ref<string | null>(null);
 
 // Keep track of initial state for dirty checking
 const initialForm = ref<typeof form.value | null>(null);
@@ -73,7 +84,11 @@ const initForm = (provider?: Provider | null) => {
 // Re-init each time dialog opens (so cancel doesn't keep dirty state),
 // and also when provider changes while open.
 watch([() => props.modelValue, () => props.provider], ([open]) => {
-  if (!open) return;
+  if (!open) {
+    showModels.value = false;
+    modelsList.value = [];
+    return;
+  }
   initForm(props.provider);
 }, { immediate: true });
 
@@ -85,6 +100,7 @@ const close = () => {
   if (props.loading) return;
   emit('update:modelValue', false);
   error.value = null;
+  showModels.value = false;
 };
 
 const validate = () => {
@@ -157,6 +173,51 @@ const handleSave = () => {
     emit('save', currentData);
   }
 };
+
+const fetchModels = async () => {
+  if (!isEditMode.value || !form.value.name) return;
+
+  showModels.value = true;
+  loadingModels.value = true;
+  modelsError.value = null;
+  modelsList.value = [];
+
+  try {
+    const data = await listProviderModels(form.value.name, form.value.type);
+    if (Array.isArray(data)) {
+      modelsList.value = data;
+      if (data.length === 0) {
+        modelsError.value = 'No models found';
+      }
+    } else {
+      // Fallback for non-standard responses
+      modelsError.value = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    }
+  } catch (e: any) {
+    modelsError.value = e.message || 'Failed to fetch models';
+  } finally {
+    loadingModels.value = false;
+  }
+};
+
+const selectModel = (model: string) => {
+  form.value.test_model = model;
+  showModels.value = false;
+};
+
+const copiedModel = ref<number | null>(null);
+const copyModel = async (model: string, index: number) => {
+  try {
+    await navigator.clipboard.writeText(model);
+    copiedModel.value = index;
+    setTimeout(() => {
+      if (copiedModel.value === index) copiedModel.value = null;
+    }, 2000);
+  } catch (err) {
+    console.error('Failed to copy:', err);
+    toast.error('Failed to copy to clipboard');
+  }
+};
 </script>
 
 <template>
@@ -215,8 +276,18 @@ const handleSave = () => {
             class="w-full px-3 py-2 rounded-xl bg-app border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors text-sm"
             :placeholder="isGemini ? '/v1beta/models/{model}:generateContent' : '/v1/chat/completions'" />
         </div>
-        <div class="space-y-1.5">
-          <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Test Model</label>
+
+        <div class="relative space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Test Model</label>
+            <button v-if="isEditMode" type="button" @click="fetchModels"
+              class="text-xs text-brand hover:text-brand-hover flex items-center gap-1 transition-colors cursor-pointer"
+              title="List Models">
+              <Icon icon="lucide:list" class="w-3 h-3" />
+              <span>List</span>
+            </button>
+          </div>
+
           <input v-model="form.test_model" type="text"
             class="w-full px-3 py-2 rounded-xl bg-app border border-border-subtle text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors text-sm"
             placeholder="gpt-5" />
@@ -235,6 +306,53 @@ const handleSave = () => {
         class="px-3 py-2 rounded-xl text-sm font-medium bg-brand text-brand-on border border-transparent cursor-pointer hover:bg-brand/90 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-out"
         @click="handleSave" :disabled="loading">
         {{ loading ? 'Saving...' : 'Save Provider' }}
+      </button>
+    </template>
+  </BaseModal>
+
+  <!-- Model Selection Modal -->
+  <BaseModal v-model="showModels" title="Select Model" @close="showModels = false">
+    <div class="min-h-[100px] max-h-[50vh] overflow-y-auto -mr-2 pr-2">
+      <!-- Loading -->
+      <div v-if="loadingModels" class="flex flex-col items-center justify-center py-8 text-text-tertiary space-y-3">
+        <Icon icon="lucide:loader-2" class="w-8 h-8 animate-spin" />
+        <span class="text-sm">Fetching models...</span>
+      </div>
+
+      <!-- Error -->
+      <div v-else-if="modelsError"
+        class="p-4 rounded-lg bg-status-error/10 border border-status-error-border text-status-error-text text-sm">
+        <div class="font-semibold mb-1">Failed to load models</div>
+        <div class="font-mono text-xs whitespace-pre-wrap break-all">{{ modelsError }}</div>
+      </div>
+
+      <!-- List -->
+      <div v-else-if="modelsList.length > 0" class="grid gap-2 my-2">
+        <div v-for="(model, index) in modelsList" :key="index" @click="selectModel(model)"
+          class="w-full min-w-0 flex items-center gap-2 px-4 py-3 rounded-xl bg-app border border-border-subtle hover:border-brand/50 hover:bg-card-hover hover:shadow-sm transition-all group cursor-pointer">
+          <div
+            class="flex-1 min-w-0 text-sm font-medium text-text-primary group-hover:text-brand transition-colors truncate">
+            {{ model }}
+          </div>
+          <button type="button" @click.stop="copyModel(model, index)"
+            class="shrink-0 -m-3 p-3 text-text-tertiary hover:text-text-primary cursor-pointer" title="Copy model name">
+            <Icon :icon="copiedModel === index ? 'lucide:check' : 'lucide:copy'" class="w-4 h-4 shrink-0"
+              :class="copiedModel === index ? 'text-status-success-text' : ''" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty -->
+      <div v-else class="text-center py-8 text-text-tertiary text-sm">
+        No models found.
+      </div>
+    </div>
+
+    <template #footer>
+      <button type="button"
+        class="px-4 py-2 rounded-xl text-sm font-medium text-text-secondary bg-card hover:bg-card-hover border border-border-subtle cursor-pointer transition-colors"
+        @click="showModels = false">
+        Close
       </button>
     </template>
   </BaseModal>
