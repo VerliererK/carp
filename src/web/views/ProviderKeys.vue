@@ -3,11 +3,12 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
-import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, deleteKeys, testKey, getProvider, updateProvider, exportKeys } from '@/api';
+import { listKeys, createKeys, resetProviderKeys, resetKey, deleteKey, deleteKeys, testKey, testKeysBatch, getProvider, updateProvider, exportKeys } from '@/api';
 import type { ApiKey, Provider } from '@shared/types';
 import PaginationBar from '@/components/PaginationBar.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ProviderDialog from '@/components/ProviderDialog.vue';
+import BaseModal from '@/components/BaseModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -107,9 +108,73 @@ const handleDownload = async (status?: 'active' | 'invalid') => {
   }
 };
 
-const handleTestKeys = () => {
-  toast.info('Feature coming soon: Test Keys');
+const batchTestDialogOpen = ref(false);
+const batchTestStats = ref({
+  total: 0,
+  processed: 0,
+  success: 0,
+  fail: 0,
+  status: 'idle' as 'idle' | 'running' | 'completed' | 'stopped',
+});
+const batchTestCursor = ref(0);
+
+const handleTestKeys = (status?: 'active' | 'invalid') => {
   menuOpen.value = false;
+  let total = summary.value.total;
+  if (status === 'active') total = summary.value.active;
+  if (status === 'invalid') total = summary.value.invalid;
+  if (!total) {
+    toast.warning('No keys to test');
+    return;
+  }
+
+  batchTestStats.value = {
+    total: total,
+    processed: 0,
+    success: 0,
+    fail: 0,
+    status: 'idle',
+  };
+  batchTestCursor.value = 0;
+  batchTestDialogOpen.value = true;
+
+  startBatchTest(status);
+};
+
+const startBatchTest = async (status?: 'active' | 'invalid') => {
+  if (!providerName.value) return;
+
+  batchTestStats.value.status = 'running';
+
+  try {
+    while (batchTestStats.value.status === 'running') {
+      const res = await testKeysBatch(providerName.value, batchTestCursor.value, 20, status);
+
+      batchTestStats.value.success += res.success;
+      batchTestStats.value.fail += res.fail;
+      batchTestStats.value.processed += (res.success + res.fail);
+
+      if (!res.next_cursor) {
+        batchTestStats.value.status = 'completed';
+        break;
+      }
+      batchTestCursor.value = res.next_cursor;
+
+      await new Promise(r => requestAnimationFrame(r));
+    }
+  } catch (e: any) {
+    // If stopped manually, don't show error
+    if ((batchTestStats.value.status as string) !== 'stopped') {
+      toast.error(e.message || 'Batch test failed');
+    }
+    batchTestStats.value.status = 'stopped';
+  } finally {
+    fetchKeys(false);
+  }
+};
+
+const stopBatchTest = () => {
+  batchTestStats.value.status = 'stopped';
 };
 
 // Batch Delete
@@ -620,10 +685,21 @@ const handleDeleteKey = async () => {
 
             <div class="h-px bg-border-subtle my-1 mx-2"></div>
 
-            <button @click="handleTestKeys" class="menu-item">
+            <button @click="handleTestKeys()" class="menu-item">
               <Icon icon="lucide:zap" class="w-4 h-4" />
               <span>Test All Keys</span>
             </button>
+            <button @click="handleTestKeys('active')" class="menu-item">
+              <Icon icon="lucide:zap" class="w-4 h-4" />
+              <span>Test All Active Keys</span>
+            </button>
+            <button @click="handleTestKeys('invalid')" class="menu-item">
+              <Icon icon="lucide:zap" class="w-4 h-4" />
+              <span>Test All Invalid Keys</span>
+            </button>
+
+            <div class="h-px bg-border-subtle my-1 mx-2"></div>
+
             <button @click="handleDeleteKeys" class="menu-item menu-item-danger">
               <Icon icon="lucide:trash-2" class="w-4 h-4" />
               <span>Delete Keys</span>
@@ -843,6 +919,53 @@ const handleDeleteKey = async () => {
 
   <ProviderDialog v-model="showEditProviderDialog" :provider="editingProvider" :loading="savingProvider" lock-name
     @save="handleSaveProvider" />
+
+  <BaseModal v-model="batchTestDialogOpen" title="Batch Test Keys" :prevent-close="batchTestStats.status === 'running'">
+    <div class="space-y-6">
+      <div class="space-y-4">
+        <!-- Progress Bar -->
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-text-secondary">Progress</span>
+            <span class="font-mono">{{ batchTestStats.processed }} / {{ batchTestStats.total }}</span>
+          </div>
+          <div class="h-2 bg-border-subtle rounded-full overflow-hidden">
+            <div class="h-full bg-brand transition-all duration-300"
+              :style="{ width: `${Math.min((batchTestStats.processed / batchTestStats.total) * 100, 100)}%` }">
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="p-3 bg-card-hover/50 rounded-xl border border-border-subtle flex flex-col items-center">
+            <span class="text-sm text-text-secondary mb-1">Success</span>
+            <span class="text-2xl font-bold text-status-success-text">{{ batchTestStats.success }}</span>
+          </div>
+          <div class="p-3 bg-card-hover/50 rounded-xl border border-border-subtle flex flex-col items-center">
+            <span class="text-sm text-text-secondary mb-1">Failed</span>
+            <span class="text-2xl font-bold text-status-error-text">{{ batchTestStats.fail }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <div class="flex gap-2">
+        <button v-if="batchTestStats.status === 'running'" type="button"
+          class="px-3 py-2 cursor-pointer rounded-xl bg-status-error text-status-error-text border border-status-error-border hover:opacity-90"
+          @click="stopBatchTest">
+          Stop
+        </button>
+
+        <button v-if="batchTestStats.status === 'completed' || batchTestStats.status === 'stopped'" type="button"
+          class="px-3 py-2 cursor-pointer rounded-xl bg-brand text-brand-on font-bold hover:opacity-90"
+          @click="batchTestDialogOpen = false">
+          Close
+        </button>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>

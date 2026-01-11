@@ -4,9 +4,10 @@ import { Icon } from '@iconify/vue';
 interface Props {
   modelValue: boolean;
   title?: string;
+  preventClose?: boolean;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
@@ -14,6 +15,7 @@ const emit = defineEmits<{
 }>();
 
 const close = () => {
+  if (props.preventClose) return;
   emit('update:modelValue', false);
   emit('close');
 };
@@ -25,7 +27,7 @@ const close = () => {
       leave-active-class="base-modal-transition" leave-from-class="opacity-100" leave-to-class="opacity-0">
       <div v-if="modelValue" class="fixed inset-0 z-50 flex items-center justify-center">
         <!-- Backdrop -->
-        <div class="absolute inset-0 bg-black/40" @click="close"></div>
+        <div class="absolute inset-0 bg-black/40" :class="{ 'cursor-not-allowed': preventClose }" @click="close"></div>
 
         <!-- Content -->
         <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-card shadow-float p-6" role="dialog"
@@ -34,7 +36,7 @@ const close = () => {
             <h2 v-if="title" class="text-lg font-semibold text-text-primary">
               {{ title }}
             </h2>
-            <button type="button"
+            <button v-if="!preventClose" type="button"
               class="ml-auto p-2 rounded-full text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer"
               @click="close" aria-label="close">
               <Icon icon="lucide:x" class="w-4 h-4" />

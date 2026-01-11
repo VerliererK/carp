@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { providers, apiKeys } from '../../lib/db';
 import { getMaxKeyFailures } from '../../lib/configs';
 import type { Provider, ApiKey } from '@shared/types';
+import fetchTimeout from '@shared/fetchTimeout';
 
 const app = new Hono<{ Bindings: Env, Variables: { provider: Provider } }>();
 
@@ -206,22 +207,13 @@ app.post('/:keyId/reset', async (c) => {
   return c.json({ message: 'API Key statistics reset' });
 });
 
-// GET /providers/:name/keys/:keyId/test
-app.get('/:keyId/test', async (c) => {
-  const provider = c.get('provider');
-  const keyId = parseInt(c.req.param('keyId'));
-
-  const key = await apiKeys.get(c.env.DB, keyId);
-  if (!key || key.provider_id !== provider.id) {
-    throw new HTTPException(404, { message: 'API Key not found for this provider' });
-  }
-
+const testKey = async (key: ApiKey, provider: Provider) => {
   const { base_url, type, test_path, test_model } = provider;
   const baseUrl = base_url.replace(/\/+$/, '');
   let response: Response;
   if (type === 'gemini') {
     const testUrl = `${baseUrl}/v1beta/models/${test_model}:generateContent`;
-    response = await fetch(testUrl, {
+    response = await fetchTimeout(testUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -232,7 +224,7 @@ app.get('/:keyId/test', async (c) => {
   } else {
     const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
     const testUrl = `${baseUrl}/${testPath}`;
-    response = await fetch(testUrl, {
+    response = await fetchTimeout(testUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -250,6 +242,29 @@ app.get('/:keyId/test', async (c) => {
     });
   }
 
+  return response;
+};
+
+const isTimeoutError = (err: any) => err?.name === 'AbortError';
+
+// GET /providers/:name/keys/:keyId/test
+app.get('/:keyId/test', async (c) => {
+  const provider = c.get('provider');
+  const keyId = parseInt(c.req.param('keyId'));
+
+  const key = await apiKeys.get(c.env.DB, keyId);
+  if (!key || key.provider_id !== provider.id) {
+    throw new HTTPException(404, { message: 'API Key not found for this provider' });
+  }
+
+  let response: Response;
+  try {
+    response = await testKey(key, provider);
+  } catch (e: any) {
+    if (isTimeoutError(e)) return c.json({ success: false, status: 0, error: 'Request Timeout' }, 408);
+    console.error(`Unknown Error testing key ${key.id}:`, e);
+    throw e;
+  }
   if (!response.ok) {
     const maxKeyFailures = await getMaxKeyFailures(c.env.DB);
     await apiKeys.recordFailure(c.env.DB, keyId, maxKeyFailures);
@@ -259,6 +274,64 @@ app.get('/:keyId/test', async (c) => {
 
   await apiKeys.resetFailure(c.env.DB, keyId);
   return c.json({ success: true, status: response.status });
+});
+
+// POST /providers/:name/keys/test-batch
+app.post('/test-batch', async (c) => {
+  const provider = c.get('provider');
+  const body = await c.req.json();
+
+  const limit = parseInt(body.limit ?? '100');
+  if (isNaN(limit) || limit <= 0 || limit > 100) throw new HTTPException(400, { message: "Invalid parameter 'limit': must be between 1 and 100" });
+
+  const cursor = parseInt(body.cursor ?? '0');
+  if (isNaN(cursor) || cursor < 0) throw new HTTPException(400, { message: "Invalid parameter 'cursor': must be greater than or equal to 0" });
+
+  let status: 'active' | 'invalid' | undefined = undefined;
+  if (body.status) {
+    const normalized = String(body.status).trim().toLowerCase();
+    if (normalized !== 'active' && normalized !== 'invalid') throw new HTTPException(400, { message: "Invalid parameter 'status': must be 'active' or 'invalid'" });
+    status = normalized;
+  }
+
+  const keys = await apiKeys.listByCursor(c.env.DB, provider.id, cursor, limit, status);
+  const maxKeyFailures = await getMaxKeyFailures(c.env.DB);
+
+  const testKeyWithResult = async (key: ApiKey) => {
+    try {
+      const response = await testKey(key, provider);
+      if (!response.ok) {
+        await apiKeys.recordFailure(c.env.DB, key.id, maxKeyFailures);
+        return { id: key.id, success: false as const };
+      }
+      await apiKeys.resetFailure(c.env.DB, key.id);
+      return { id: key.id, success: true as const };
+    } catch (e: any) {
+      if (isTimeoutError(e)) return { id: key.id, success: false as const };
+      console.error(`Unknown Error testing key ${key.id}:`, e);
+      return { id: key.id, success: false as const };
+    }
+  };
+
+  const CONCURRENCY_LIMIT = 5;
+  const pool = new Set<Promise<void>>();
+  const results: Array<{ id: number; success: boolean; }> = [];
+  for (const key of keys) {
+    const task = testKeyWithResult(key).then((r) => {
+      results.push(r);
+      pool.delete(task);
+    });
+    pool.add(task);
+    if (pool.size >= CONCURRENCY_LIMIT) {
+      await Promise.race(pool);
+    }
+  }
+  await Promise.all(pool);
+
+  const totalSuccess = results.filter(r => r.success).length;
+  const totalFailures = results.filter(r => !r.success).length;
+  const next_cursor = keys.length === limit ? keys[keys.length - 1].id : null;
+  return c.json({ next_cursor, success: totalSuccess, fail: totalFailures });
 });
 
 export default app;

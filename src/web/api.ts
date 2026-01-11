@@ -212,6 +212,20 @@ export async function testKey(providerName: string, keyId: number): Promise<void
   }
 }
 
+export async function testKeysBatch(providerName: string, cursor: number, limit = 20, status?: 'active' | 'invalid')
+  : Promise<{ next_cursor: number | null; success: number; fail: number; }> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/test-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cursor, limit, status }),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => { });
+    throw new Error(error?.error || error?.message || 'Failed to batch test keys');
+  }
+  return await response.json();
+}
+
 export async function exportKeys(providerName: string, status?: 'active' | 'invalid'): Promise<void> {
   const queryString = status ? `?status=${status}` : '';
   const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/keys/export${queryString}`);

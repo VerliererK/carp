@@ -120,19 +120,32 @@ export const apiKeys = {
     return results.flatMap(r => r.results);
   },
 
-  async list(db: D1Database, providerId?: number, status?: 'active' | 'invalid'): Promise<ApiKey[]> {
-    if (providerId) {
-      if (status) {
-        const result = await db.prepare('SELECT * FROM api_keys WHERE provider_id = ? AND status = ?')
-          .bind(providerId, status).all<ApiKey>();
-        return result.results;
-      }
-      const result = await db.prepare('SELECT * FROM api_keys WHERE provider_id = ?').bind(providerId).all<ApiKey>();
-      return result.results;
-    } else {
-      const result = await db.prepare('SELECT * FROM api_keys').all<ApiKey>();
-      return result.results;
-    }
+  async list(db: D1Database, providerId: number, status?: 'active' | 'invalid'): Promise<ApiKey[]> {
+    const sql = status
+      ? 'SELECT * FROM api_keys WHERE provider_id = ? AND status = ?'
+      : 'SELECT * FROM api_keys WHERE provider_id = ?';
+    const bindings = status
+      ? [providerId, status]
+      : [providerId];
+
+    const result = await db.prepare(sql).bind(...bindings).all<ApiKey>();
+    return result.results;
+  },
+
+  async listByCursor(db: D1Database, providerId: number, cursor: number, limit = 100, status?: 'active' | 'invalid'): Promise<ApiKey[]> {
+    limit = Math.min(limit, 100);
+    cursor = Math.max(cursor, 0);
+
+    const sql = status
+      ? 'SELECT * FROM api_keys WHERE provider_id = ? AND id > ? AND status = ? ORDER BY id ASC LIMIT ?'
+      : 'SELECT * FROM api_keys WHERE provider_id = ? AND id > ? ORDER BY id ASC LIMIT ?';
+
+    const bindings = status
+      ? [providerId, cursor, status, limit]
+      : [providerId, cursor, limit];
+
+    const result = await db.prepare(sql).bind(...bindings).all<ApiKey>();
+    return result.results;
   },
 
   async listWithFilters(
