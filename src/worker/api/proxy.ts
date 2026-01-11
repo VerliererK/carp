@@ -28,7 +28,7 @@ export const proxyHandler = async (c: Context) => {
   const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
 
   // Prepare request
-  const isGemini = matchGemini(url.pathname);
+  const isGemini = provider.type === 'gemini';
   if (isGemini) url.searchParams.delete('key');
   const originalPath = url.pathname.slice(`/proxy/${providerName}`.length);
   const baseUrl = provider.base_url.replace(/\/+$/, '');
@@ -101,6 +101,8 @@ function sanitizeHeaders(
   headers.delete('content-length');      // Let fetch auto-calculate
   headers.delete('transfer-encoding');   // Avoid conflicts
   headers.delete('connection');          // HTTP/1.1 specific, not needed
+
+  headers.delete('authorization');
 
   // Add custom headers
   if (provider.custom_headers) {
