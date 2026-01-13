@@ -58,13 +58,15 @@ npm run cf-typegen
 
 ### 主要功能
 - **Dashboard**：顯示總請求數、成功率、失敗率、回應時間與請求趨勢圖。
-- **Providers / Provider Keys**：管理供應商與 API 金鑰。
+- **Providers / Provider Keys**：管理供應商與 API 金鑰。支援的 Provider Type：
+  - `openai`：OpenAI 相容 API（Bearer Token 認證）
+  - `gemini`：Google Gemini API（x-goog-api-key 認證）
 - **Logs**：查看所有代理請求的詳細記錄。
 - **Settings**：調整系統參數（最大重試次數、失敗閾值等）。
 
 ### Proxy API
 - 基礎路徑：`/proxy/:provider/*`
-- Bearer Token：請於 `Authorization: Bearer <AUTH_TOKEN>` 送出
+- 認證方式（依 Provider Type）：使用 `AUTH_TOKEN`
 - 執行流程：
   1. 依供應商名稱載入設定；若停用將回傳 403
   2. 依 LRU（Least Recently Used）取出至多 3 把最久未使用金鑰，再隨機選擇其中一把
