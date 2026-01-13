@@ -90,7 +90,7 @@ onMounted(() => {
 <template>
   <div class="space-y-8">
     <!-- Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
       <DashboardCard v-for="(stat, index) in stats" :key="index" :title="stat.title" :value="stat.value"
         :value-unit="stat.valueUnit" :value-class="stat.valueClass" :subtext="stat.subtext" />
     </div>
