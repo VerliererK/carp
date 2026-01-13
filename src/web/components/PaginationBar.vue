@@ -31,7 +31,7 @@ const totalPages = computed(() => {
 const paginationItems = computed((): PaginationItem[] => {
   const pages = totalPages.value;
   const current = Math.min(Math.max(1, props.page), pages);
-  if (pages <= 7) {
+  if (pages <= 5) {
     return Array.from({ length: pages }, (_, i) => ({ type: 'page' as const, value: i + 1 }));
   }
 
