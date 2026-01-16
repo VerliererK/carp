@@ -28,7 +28,7 @@ export const proxyHandler = async (c: Context) => {
   const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
 
   // Prepare request
-  const isGemini = provider.type === 'gemini';
+  const isGemini = provider.type === 'gemini' && !url.pathname.includes('v1beta/openai');
   if (isGemini) url.searchParams.delete('key');
   const originalPath = url.pathname.slice(`/proxy/${providerName}`.length);
   const baseUrl = provider.base_url.replace(/\/+$/, '');
