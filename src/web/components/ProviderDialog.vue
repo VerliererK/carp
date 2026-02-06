@@ -298,12 +298,12 @@ const copyModel = async (model: string, index: number) => {
 
     <template #footer>
       <button type="button"
-        class="px-3 py-2 rounded-xl text-sm font-medium text-text-secondary bg-card hover:bg-card-hover border border-border-subtle cursor-pointer transition duration-150 ease-out"
+        class="px-3 py-2 rounded-xl text-sm font-medium text-text-secondary bg-card hover:bg-card-hover border border-border-subtle cursor-pointer transition duration-200 ease-out"
         @click="close" :disabled="loading">
         Cancel
       </button>
       <button type="button"
-        class="px-3 py-2 rounded-xl text-sm font-medium bg-brand text-brand-on border border-transparent cursor-pointer hover:bg-brand/90 disabled:opacity-60 disabled:cursor-not-allowed transition duration-150 ease-out"
+        class="px-3 py-2 rounded-xl text-sm font-medium bg-brand text-brand-on border border-transparent cursor-pointer hover:bg-brand/90 disabled:opacity-60 disabled:cursor-not-allowed transition duration-200 ease-out"
         @click="handleSave" :disabled="loading">
         {{ loading ? 'Saving...' : 'Save Provider' }}
       </button>

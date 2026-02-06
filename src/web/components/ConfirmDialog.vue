@@ -42,13 +42,13 @@ const handleConfirm = () => {
 
     <template #footer>
       <button type="button"
-        class="px-3 py-2 rounded-xl text-sm font-medium text-text-secondary bg-card hover:bg-card-hover border border-border-subtle cursor-pointer transition duration-150 ease-out disabled:opacity-60"
+        class="px-3 py-2 rounded-xl text-sm font-medium text-text-secondary bg-card hover:bg-card-hover border border-border-subtle cursor-pointer transition duration-200 ease-out disabled:opacity-60"
         @click="close" :disabled="loading">
         {{ cancelText }}
       </button>
 
       <button type="button"
-        class="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer border transition duration-150 ease-out disabled:opacity-60 disabled:cursor-not-allowed"
+        class="px-3 py-2 rounded-xl text-sm font-medium cursor-pointer border transition duration-200 ease-out disabled:opacity-60 disabled:cursor-not-allowed"
         :class="[
           isDanger
             ? 'bg-status-error text-status-error-text border-status-error-border hover:bg-status-error/90'
