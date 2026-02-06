@@ -4,6 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import apiRoutes from './api';
 import { proxyHandler, matchGemini } from './api/proxy';
 import { requestLogs } from './lib/db';
+import { getLogRetentionDays } from './lib/configs';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -62,8 +63,8 @@ app.route('/api', apiRoutes);
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    const retentionDays = 7;
     const task = (async () => {
+      const retentionDays = await getLogRetentionDays(env.DB);
       const deleted = await requestLogs.deleteOlderThan(env.DB, retentionDays);
       if (deleted > 0) {
         console.info(`[scheduled] deleted ${deleted} request log(s)`);

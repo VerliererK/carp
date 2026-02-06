@@ -1,4 +1,5 @@
 import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
+import type { SettingKey, SettingsPayload } from '@shared/settings';
 import type { Provider, ApiKey } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
@@ -304,4 +305,22 @@ export async function clearLogs(): Promise<void> {
     method: 'DELETE',
   });
   if (!response.ok) throw new Error('Failed to clear logs');
+}
+
+// ========== Settings API ==========
+
+export async function listSettings(): Promise<SettingsPayload> {
+  const response = await authorizedFetch(`${API_BASE}/settings`);
+  if (!response.ok) throw new Error('Failed to fetch settings');
+  return await response.json();
+}
+
+export async function updateSetting(key: SettingKey, value: number): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/settings/${key}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  });
+
+  if (!response.ok) throw new Error('Failed to update settings');
 }
