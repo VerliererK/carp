@@ -13,7 +13,7 @@ defineEmits<{
 
 <template>
   <div
-    class="group flex flex-col sm:flex-row items-start sm:items-center justify-between bg-card border border-border-subtle rounded-xl p-4 shadow-lg shadow-black/5 hover:shadow-float hover:border-border-hover transition-all duration-200 ease-out gap-4">
+    class="group flex flex-col sm:flex-row items-start sm:items-center justify-between bg-card border border-border-subtle rounded-xl p-4 shadow-float hover:border-border-focus transition-all duration-200 ease-out gap-4">
 
     <!-- Left Section: Info -->
     <div class="flex items-center gap-4 flex-1 min-w-0 w-full sm:w-auto">

@@ -96,7 +96,7 @@ onMounted(() => {
     </div>
 
     <!-- Charts -->
-    <div class="bg-card border border-border-subtle rounded-2xl p-6 shadow-lg shadow-black/5">
+    <div class="bg-card border border-border-subtle rounded-2xl p-6">
       <div class="flex justify-end">
         <div class="flex items-center gap-1 rounded-lg bg-card-hover p-1">
           <button v-for="option in ([{ value: '24h', label: '24 Hours' }, { value: '7d', label: '7 Days' }] as const)"

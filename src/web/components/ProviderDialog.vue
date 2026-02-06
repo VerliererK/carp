@@ -281,7 +281,7 @@ const copyModel = async (model: string, index: number) => {
           <div class="flex items-center justify-between">
             <label class="block text-xs font-medium text-text-secondary uppercase tracking-wider">Test Model</label>
             <button v-if="isEditMode" type="button" @click="fetchModels"
-              class="text-xs text-brand hover:text-brand-hover flex items-center gap-1 transition-colors cursor-pointer"
+              class="text-xs text-brand hover:text-brand/70 flex items-center gap-1 transition-colors cursor-pointer"
               title="List Models">
               <Icon icon="lucide:list" class="w-3 h-3" />
               <span>List</span>

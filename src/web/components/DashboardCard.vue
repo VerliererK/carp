@@ -17,7 +17,7 @@ withDefaults(defineProps<Props>(), {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 h-full bg-card border border-border-subtle rounded-2xl p-6 shadow-lg shadow-black/5">
+  <div class="flex flex-col gap-4 h-full bg-card border border-border-subtle rounded-2xl p-6 shadow-float">
     <h3 class="text-text-secondary text-sm font-medium uppercase tracking-wide">{{ title }}</h3>
     <div class="flex items-baseline gap-1" :class="valueClass">
       <span class="text-3xl font-semibold tracking-tight">{{ value }}</span>

@@ -46,7 +46,7 @@ const navigateTo = (key: string) => {
 
     <!-- Sidebar -->
     <aside
-      class="sidebar-panel fixed inset-y-0 left-0 z-50 flex flex-col w-54 shrink-0 bg-card border-r border-border-subtle shadow-2xl md:shadow-none md:relative md:translate-x-0 md:transition-none"
+      class="sidebar-panel fixed inset-y-0 left-0 z-50 flex flex-col w-54 shrink-0 bg-card border-r border-border-subtle shadow-float md:shadow-none md:relative md:translate-x-0 md:transition-none"
       :class="isSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
       <div class="flex justify-between items-center px-3 py-3 border-b border-border-subtle">
         <div class="flex gap-4 items-center">

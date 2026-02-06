@@ -130,7 +130,7 @@ onMounted(() => {
   <div class="flex items-center justify-between mb-6">
     <!-- Stats Group -->
     <div
-      class="w-auto flex items-center gap-4 py-2.5 px-4 bg-card border border-border-subtle rounded-2xl shadow-lg shadow-black/5">
+      class="w-auto flex items-center gap-4 py-2.5 px-4 bg-card border border-border-subtle rounded-2xl shadow-float">
       <template v-for="(stat, idx) in stats" :key="stat.key">
         <div class="flex flex-row items-center gap-1">
           <div class="flex items-center justify-center px-2" :class="stat.iconClass">

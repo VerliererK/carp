@@ -11,6 +11,7 @@
   --color-text-tertiary: var(--text-tertiary);
 
   --color-brand: var(--brand-primary);
+  --color-brand-dark: var(--brand-dark);
   --color-brand-on: var(--brand-on-primary);
   --color-brand-subtle: var(--brand-subtle);
 
@@ -81,6 +82,7 @@
   --text-tertiary: hsl(var(--p-blue-500));
 
   --brand-primary: hsl(var(--p-blue-500));
+  --brand-dark: hsl(var(--p-blue-700));
   --brand-on-primary: hsl(var(--n-0));
   --brand-subtle: hsl(var(--p-blue-50));
 
@@ -115,6 +117,7 @@
   --text-tertiary: hsl(var(--n-400));
 
   --brand-primary: hsl(var(--p-blue-300));
+  --brand-dark: hsl(var(--p-blue-700));
   --brand-on-primary: hsl(var(--n-950));
   --brand-subtle: hsla(var(--p-blue-300) / 0.1);
 

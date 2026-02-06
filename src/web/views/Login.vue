@@ -70,7 +70,7 @@ const login = async () => {
           <div class="relative">
             <input id="token" type="password" v-model="password" @input="errorMessage = ''"
               placeholder="Enter Auth Token"
-              class="w-full bg-app border border-border-subtle text-text-primary rounded-xl px-4 py-3.5 text-base sm:text-sm outline-none focus:border-border-focus focus:ring-2 focus:ring-[hsl(var(--p-blue-300)/0.2)] transition duration-200 placeholder:text-text-secondary placeholder:opacity-50 shadow-sm"
+              class="w-full bg-app border border-border-subtle text-text-primary rounded-xl px-4 py-3.5 text-base sm:text-sm outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20 transition duration-200 placeholder:text-text-secondary placeholder:opacity-50 shadow-sm"
               :disabled="isSubmitting" autofocus />
           </div>
         </div>
@@ -94,7 +94,7 @@ const login = async () => {
 
       <!-- Security Note -->
       <div class="bg-app/90 border border-border-subtle/60 rounded-xl p-4 flex items-center gap-3">
-        <div class="p-2 bg-card rounded-lg text-brand shadow-xs shrink-0 ring-1 ring-black/5 dark:ring-white/5">
+        <div class="p-2 bg-card rounded-lg text-brand shadow-sm shrink-0 ring-1 ring-border-subtle">
           <Icon icon="lucide:shield-check" class="h-5 w-5" />
         </div>
         <div>

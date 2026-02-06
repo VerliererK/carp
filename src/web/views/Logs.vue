@@ -322,7 +322,7 @@ onMounted(() => {
 @import "@/style.css";
 
 .log-card {
-  @apply bg-card border border-border-subtle rounded-2xl shadow-lg shadow-black/5;
+  @apply bg-card border border-border-subtle rounded-2xl shadow-float;
 }
 
 .filters-icon {
