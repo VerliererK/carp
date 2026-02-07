@@ -224,6 +224,7 @@ const testKey = async (key: ApiKey, provider: Provider) => {
   } else {
     const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
     const testUrl = `${baseUrl}/${testPath}`;
+    const useMaxCompletionTokens = /^gpt-5/.test(test_model || '');
     response = await fetchTimeout(testUrl, {
       method: 'POST',
       headers: {
@@ -237,7 +238,7 @@ const testKey = async (key: ApiKey, provider: Provider) => {
           content: 'Hi',
         }],
         stream: false,
-        max_tokens: 64
+        ...(useMaxCompletionTokens ? { max_completion_tokens: 64 } : { max_tokens: 64 })
       })
     });
   }
