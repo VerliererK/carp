@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
 import { listProviders, createProvider, toggleProvider, updateProvider, deleteProvider } from '@/api';
-import type { Provider } from '@shared/types';
+import type { Provider, ProviderWithKeyCounts } from '@shared/types';
 import ProviderCard from '@/components/ProviderCard.vue';
 import ConfirmDialog from '@/components/ConfirmDialog.vue';
 import ProviderDialog from '@/components/ProviderDialog.vue';
@@ -12,7 +12,7 @@ import ProviderDialog from '@/components/ProviderDialog.vue';
 const router = useRouter();
 const toast = useToast();
 
-const providers = ref<(Provider & { keys_count: number })[]>([]);
+const providers = ref<ProviderWithKeyCounts[]>([]);
 
 const showDeleteDialog = ref(false);
 const providerToDelete = ref<Provider | null>(null);
@@ -40,6 +40,12 @@ const stats = computed(() => [
     value: providers.value.reduce((acc, p) => acc + p.keys_count, 0),
     icon: 'lucide:key',
     iconClass: 'text-text-secondary',
+  },
+  {
+    key: 'invalid_keys',
+    value: providers.value.reduce((acc, p) => acc + p.invalid_key_count, 0),
+    icon: 'lucide:triangle-alert',
+    iconClass: 'text-status-error-text',
   },
 ]);
 

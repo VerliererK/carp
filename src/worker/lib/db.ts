@@ -1,4 +1,4 @@
-import type { SystemSetting, Provider, ApiKey, RequestLog, RequestStats, TimeSeriesStats } from '@shared/types';
+import type { SystemSetting, Provider, ProviderWithKeyCounts, ApiKey, RequestLog, RequestStats, TimeSeriesStats } from '@shared/types';
 
 // System Settings
 export const systemSettings = {
@@ -47,38 +47,44 @@ export const providers = {
     return result!;
   },
 
-  async list(db: D1Database): Promise<(Provider & { keys_count: number })[]> {
+  async list(db: D1Database): Promise<ProviderWithKeyCounts[]> {
     const result = await db.prepare(`
       SELECT 
         p.*,
-        COUNT(k.id) AS keys_count
+        COUNT(k.id) AS keys_count,
+        COALESCE(SUM(CASE WHEN k.status = 'active' THEN 1 ELSE 0 END), 0) AS active_key_count,
+        COALESCE(SUM(CASE WHEN k.status = 'invalid' THEN 1 ELSE 0 END), 0) AS invalid_key_count
       FROM providers p
       LEFT JOIN api_keys k ON k.provider_id = p.id
       GROUP BY p.id
       ORDER BY p.id
-    `).all<Provider & { keys_count: number }>();
+    `).all<ProviderWithKeyCounts>();
     return result.results;
   },
 
-  async get(db: D1Database, id: number): Promise<(Provider & { keys_count: number }) | null> {
+  async get(db: D1Database, id: number): Promise<ProviderWithKeyCounts | null> {
     const result = await db.prepare(`
       SELECT 
         p.*,
-        (SELECT COUNT(*) FROM api_keys k WHERE k.provider_id = p.id) AS keys_count
+        (SELECT COUNT(*) FROM api_keys k WHERE k.provider_id = p.id) AS keys_count,
+        COALESCE((SELECT SUM(CASE WHEN k.status = 'active' THEN 1 ELSE 0 END) FROM api_keys k WHERE k.provider_id = p.id), 0) AS active_key_count,
+        COALESCE((SELECT SUM(CASE WHEN k.status = 'invalid' THEN 1 ELSE 0 END) FROM api_keys k WHERE k.provider_id = p.id), 0) AS invalid_key_count
       FROM providers p
       WHERE p.id = ?
-    `).bind(id).first<Provider & { keys_count: number }>();
+    `).bind(id).first<ProviderWithKeyCounts>();
     return result ?? null;
   },
 
-  async getByName(db: D1Database, name: string): Promise<(Provider & { keys_count: number }) | null> {
+  async getByName(db: D1Database, name: string): Promise<ProviderWithKeyCounts | null> {
     const result = await db.prepare(`
       SELECT 
         p.*,
-        (SELECT COUNT(*) FROM api_keys k WHERE k.provider_id = p.id) AS keys_count
+        (SELECT COUNT(*) FROM api_keys k WHERE k.provider_id = p.id) AS keys_count,
+        COALESCE((SELECT SUM(CASE WHEN k.status = 'active' THEN 1 ELSE 0 END) FROM api_keys k WHERE k.provider_id = p.id), 0) AS active_key_count,
+        COALESCE((SELECT SUM(CASE WHEN k.status = 'invalid' THEN 1 ELSE 0 END) FROM api_keys k WHERE k.provider_id = p.id), 0) AS invalid_key_count
       FROM providers p
       WHERE p.name = ?
-    `).bind(name).first<Provider & { keys_count: number }>();
+    `).bind(name).first<ProviderWithKeyCounts>();
     return result ?? null;
   },
 

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Icon } from '@iconify/vue';
-import type { Provider } from '@shared/types';
+import type { ProviderWithKeyCounts } from '@shared/types';
 
-defineProps<{ provider: Provider & { keys_count: number } }>();
+defineProps<{ provider: ProviderWithKeyCounts }>();
 
 defineEmits<{
   (e: 'toggle', id: number): void;
@@ -29,7 +29,11 @@ defineEmits<{
         <!-- Keys Stats Moved Here -->
         <div class="flex items-center gap-1.5 mt-1.5 opacity-80" title="Active Keys">
           <Icon icon="lucide:key" class="w-3 h-3 text-text-tertiary" />
-          <span class="text-xs font-mono font-medium text-text-secondary">{{ provider.keys_count }} keys</span>
+          <span class="text-xs font-mono font-medium text-text-secondary mr-2">{{ provider.keys_count }} keys</span>
+          <template v-if="provider.invalid_key_count > 0">
+            <Icon icon="lucide:triangle-alert" class="w-3 h-3 text-status-error-text/90" />
+            <span class="text-xs font-mono font-medium text-status-error-text/90">{{ provider.invalid_key_count }}</span>
+          </template>
         </div>
       </div>
     </div>

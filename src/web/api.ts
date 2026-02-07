@@ -1,6 +1,6 @@
 import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
 import type { SettingKey, SettingsPayload } from '@shared/settings';
-import type { Provider, ApiKey } from '@shared/types';
+import type { Provider, ProviderWithKeyCounts, ApiKey } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
 const API_BASE = '/api/admin';
@@ -42,7 +42,7 @@ export async function getStatsTimeseries(period: '24h' | '7d' = '24h'): Promise<
 
 // ========== Providers API ==========
 
-export async function listProviders(): Promise<(Provider & { keys_count: number })[]> {
+export async function listProviders(): Promise<ProviderWithKeyCounts[]> {
   const response = await authorizedFetch(`${API_BASE}/providers`);
   if (!response.ok) throw new Error('Failed to fetch providers');
   return await response.json();
@@ -62,7 +62,7 @@ export async function createProvider(data: Omit<Provider, 'id'>): Promise<Provid
   return result.provider;
 }
 
-export async function getProvider(name: string): Promise<Provider & { keys_count: number }> {
+export async function getProvider(name: string): Promise<ProviderWithKeyCounts> {
   const response = await authorizedFetch(`${API_BASE}/providers/${name}`);
   if (!response.ok) throw new Error('Provider not found');
   return await response.json();

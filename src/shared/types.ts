@@ -16,6 +16,14 @@ export interface Provider {
   enabled: number;         // 0 = disabled, 1 = enabled
 }
 
+export interface ProviderKeyCounts {
+  keys_count: number;
+  active_key_count: number;
+  invalid_key_count: number;
+}
+
+export type ProviderWithKeyCounts = Provider & ProviderKeyCounts;
+
 // API keys pool of provider
 export interface ApiKey {
   id: number;
