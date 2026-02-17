@@ -63,3 +63,22 @@ export interface TimeSeriesStats {
   failed: number;
   avg_duration: number;
 }
+
+// Model routing (model name → provider mapping)
+export interface Model {
+  id: number;
+  name: string;
+  enabled: number;
+}
+
+export interface ModelMapping {
+  id: number;
+  model_id: number;
+  provider_id: number;
+  model_name: string;
+}
+
+export interface ModelMappingWithProvider extends ModelMapping {
+  provider_name: string;
+  provider_enabled: number;
+}

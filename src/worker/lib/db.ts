@@ -1,4 +1,4 @@
-import type { SystemSetting, Provider, ProviderWithKeyCounts, ApiKey, RequestLog, RequestStats, TimeSeriesStats } from '@shared/types';
+import type { SystemSetting, Provider, ProviderWithKeyCounts, ApiKey, RequestLog, RequestStats, TimeSeriesStats, Model, ModelMapping, ModelMappingWithProvider } from '@shared/types';
 
 // System Settings
 export const systemSettings = {
@@ -429,6 +429,107 @@ export const apiKeys = {
     params.push(limit);
 
     const result = await db.prepare(query).bind(...params).all<ApiKey>();
+    return result.results;
+  },
+};
+
+// Models
+export const models = {
+  async create(db: D1Database, data: Omit<Model, 'id'>): Promise<Model> {
+    const result = await db.prepare(
+      'INSERT INTO models (name, enabled) VALUES (?, ?) RETURNING *'
+    ).bind(data.name, data.enabled ?? 1).first<Model>();
+    return result!;
+  },
+
+  async list(db: D1Database): Promise<(Model & { mappings_count: number })[]> {
+    const result = await db.prepare(`
+      SELECT m.*, COUNT(mm.id) AS mappings_count
+      FROM models m
+      LEFT JOIN model_mappings mm ON mm.model_id = m.id
+      GROUP BY m.id
+      ORDER BY m.id
+    `).all<Model & { mappings_count: number }>();
+    return result.results;
+  },
+
+  async getByName(db: D1Database, name: string): Promise<Model | null> {
+    const result = await db.prepare('SELECT * FROM models WHERE name = ?').bind(name).first<Model>();
+    return result ?? null;
+  },
+
+  async update(db: D1Database, id: number, data: Partial<Omit<Model, 'id'>>): Promise<void> {
+    const allowedFields = ['name', 'enabled'];
+    const updates = Object.entries(data)
+      .filter(([key]) => allowedFields.includes(key))
+      .map(([key]) => `${key} = ?`);
+
+    if (updates.length === 0) return;
+
+    const values = Object.entries(data)
+      .filter(([key]) => allowedFields.includes(key))
+      .map(([, value]) => value);
+
+    await db.prepare(`UPDATE models SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id).run();
+  },
+
+  async delete(db: D1Database, id: number): Promise<void> {
+    await db.prepare('DELETE FROM models WHERE id = ?').bind(id).run();
+  },
+};
+
+// Model Mappings
+export const modelMappings = {
+  async create(db: D1Database, data: Omit<ModelMapping, 'id'>): Promise<ModelMapping> {
+    const result = await db.prepare(
+      'INSERT INTO model_mappings (model_id, provider_id, model_name) VALUES (?, ?, ?) RETURNING *'
+    ).bind(data.model_id, data.provider_id, data.model_name).first<ModelMapping>();
+    return result!;
+  },
+
+  async listByModel(db: D1Database, modelId: number): Promise<ModelMappingWithProvider[]> {
+    const result = await db.prepare(`
+      SELECT mm.*, p.name AS provider_name, p.enabled AS provider_enabled
+      FROM model_mappings mm
+      JOIN providers p ON p.id = mm.provider_id
+      WHERE mm.model_id = ?
+      ORDER BY mm.id
+    `).bind(modelId).all<ModelMappingWithProvider>();
+    return result.results;
+  },
+
+  async get(db: D1Database, id: number): Promise<ModelMapping | null> {
+    const result = await db.prepare('SELECT * FROM model_mappings WHERE id = ?').bind(id).first<ModelMapping>();
+    return result ?? null;
+  },
+
+  async update(db: D1Database, id: number, data: Partial<Omit<ModelMapping, 'id' | 'model_id'>>): Promise<void> {
+    const allowedFields = ['provider_id', 'model_name'];
+    const updates = Object.entries(data)
+      .filter(([key]) => allowedFields.includes(key))
+      .map(([key]) => `${key} = ?`);
+
+    if (updates.length === 0) return;
+
+    const values = Object.entries(data)
+      .filter(([key]) => allowedFields.includes(key))
+      .map(([, value]) => value);
+
+    await db.prepare(`UPDATE model_mappings SET ${updates.join(', ')} WHERE id = ?`).bind(...values, id).run();
+  },
+
+  async delete(db: D1Database, id: number): Promise<void> {
+    await db.prepare('DELETE FROM model_mappings WHERE id = ?').bind(id).run();
+  },
+
+  async resolve(db: D1Database, name: string): Promise<{ provider_name: string; model_name: string }[]> {
+    const result = await db.prepare(`
+      SELECT p.name AS provider_name, mm.model_name
+      FROM model_mappings mm
+      JOIN models m ON m.id = mm.model_id
+      JOIN providers p ON p.id = mm.provider_id
+      WHERE m.name = ? AND m.enabled = 1 AND p.enabled = 1
+    `).bind(name).all<{ provider_name: string; model_name: string }>();
     return result.results;
   },
 };
