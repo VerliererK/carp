@@ -1,6 +1,6 @@
 import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
 import type { SettingKey, SettingsPayload } from '@shared/settings';
-import type { Provider, ProviderWithKeyCounts, ApiKey } from '@shared/types';
+import type { Provider, ProviderWithKeyCounts, ApiKey, Model, ModelMapping, ModelMappingWithProvider } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
 const API_BASE = '/api/admin';
@@ -323,4 +323,91 @@ export async function updateSetting(key: SettingKey, value: number): Promise<voi
   });
 
   if (!response.ok) throw new Error('Failed to update settings');
+}
+
+// ========== Models API ==========
+
+export async function listModels(): Promise<(Model & { mappings_count: number })[]> {
+  const response = await authorizedFetch(`${API_BASE}/models`);
+  if (!response.ok) throw new Error('Failed to fetch models');
+  return await response.json();
+}
+
+export async function createModel(data: { name: string; enabled?: boolean }): Promise<Model> {
+  const response = await authorizedFetch(`${API_BASE}/models`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to create model');
+  }
+  const result = await response.json();
+  return result.model;
+}
+
+export async function getModel(name: string): Promise<Model & { mappings: ModelMappingWithProvider[] }> {
+  const response = await authorizedFetch(`${API_BASE}/models/${name}`);
+  if (!response.ok) throw new Error('Model not found');
+  return await response.json();
+}
+
+export async function updateModel(name: string, data: { name?: string; enabled?: boolean }): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/models/${name}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to update model');
+  }
+}
+
+export async function deleteModel(name: string): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/models/${name}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete model');
+}
+
+export async function createModelMapping(
+  modelName: string,
+  data: { provider_id: number; model_name: string },
+): Promise<ModelMapping> {
+  const response = await authorizedFetch(`${API_BASE}/models/${modelName}/mappings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to create mapping');
+  }
+  const result = await response.json();
+  return result.mapping;
+}
+
+export async function updateModelMapping(
+  modelName: string,
+  mappingId: number,
+  data: { provider_id?: number; model_name?: string },
+): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/models/${modelName}/mappings/${mappingId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.error || 'Failed to update mapping');
+  }
+}
+
+export async function deleteModelMapping(modelName: string, mappingId: number): Promise<void> {
+  const response = await authorizedFetch(`${API_BASE}/models/${modelName}/mappings/${mappingId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete mapping');
 }

@@ -5,6 +5,7 @@ import Providers from './views/Providers.vue';
 import ProviderKeys from './views/ProviderKeys.vue';
 import Logs from './views/Logs.vue';
 import Settings from './views/Settings.vue';
+import Models from './views/Models.vue';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -18,6 +19,7 @@ export const router = createRouter({
         { path: 'dashboard', name: 'dashboard', component: Dashboard },
         { path: 'providers', name: 'providers', component: Providers },
         { path: 'providers/:name/keys', name: 'provider-keys', component: ProviderKeys },
+        { path: 'models', name: 'models', component: Models },
         { path: 'logs', name: 'logs', component: Logs },
         { path: 'settings', name: 'settings', component: Settings },
       ]

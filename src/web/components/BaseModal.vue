@@ -30,9 +30,9 @@ const close = () => {
         <div class="absolute inset-0 bg-black/40" :class="{ 'cursor-not-allowed': preventClose }" @click="close"></div>
 
         <!-- Content -->
-        <div class="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-card shadow-float p-6" role="dialog"
-          aria-modal="true" :aria-label="title">
-          <div class="flex items-center gap-3 mb-4">
+        <div class="relative z-10 mx-4 w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl bg-card shadow-float py-6"
+          role="dialog" aria-modal="true" :aria-label="title">
+          <div class="flex items-center gap-3 mb-4 shrink-0 px-6">
             <h2 v-if="title" class="text-lg font-semibold text-text-primary">
               {{ title }}
             </h2>
@@ -43,11 +43,11 @@ const close = () => {
             </button>
           </div>
 
-          <div class="text-text-secondary">
+          <div class="text-text-secondary overflow-y-auto min-h-0 px-6 py-1">
             <slot></slot>
           </div>
 
-          <div v-if="$slots.footer" class="mt-6 flex justify-end gap-2">
+          <div v-if="$slots.footer" class="mt-6 flex justify-end gap-2 shrink-0 px-6">
             <slot name="footer"></slot>
           </div>
         </div>

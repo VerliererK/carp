@@ -13,6 +13,7 @@ const isSidebarOpen = ref(false);
 const menuItems = [
   { name: 'Dashboard', key: 'dashboard', icon: 'lucide:bar-chart-3' },
   { name: 'Providers', key: 'providers', icon: 'lucide:network' },
+  { name: 'Models', key: 'models', icon: 'lucide:box' },
   { name: 'Logs', key: 'logs', icon: 'lucide:file-text' },
   { name: 'Settings', key: 'settings', icon: 'lucide:settings' },
 ];

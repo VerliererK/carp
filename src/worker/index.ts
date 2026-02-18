@@ -3,6 +3,7 @@ import { bearerAuth } from 'hono/bearer-auth'
 import { HTTPException } from 'hono/http-exception';
 import apiRoutes from './api';
 import { proxyHandler, matchGemini } from './api/proxy';
+import { createGatewayHandler, listModelsHandler } from './api/gateway';
 import { requestLogs } from './lib/db';
 import { getLogRetentionDays } from './lib/configs';
 
@@ -57,7 +58,10 @@ app.onError((err, c) => {
 // --- Routes ---
 app.use('/api/*', authMiddleware);
 app.use('/proxy/*', proxyAuthMiddleware);
+app.use('/v1/*', proxyAuthMiddleware);
 app.all('/proxy/:provider/*', proxyHandler);
+app.get('/v1/models', listModelsHandler);
+app.post('/v1/*', createGatewayHandler(app));
 app.route('/api', apiRoutes);
 
 export default {
