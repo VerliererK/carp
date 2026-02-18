@@ -8,8 +8,9 @@ CARP 是一個部署在 Cloudflare Workers 上的 AI API 代理服務，提供�
 - **🔑 金鑰池管理**：支援為每個 AI 供應商配置多個 API 金鑰，系統自動在金鑰之間進行輪換，平衡負載並提高配額上限
 - **🔄 智能重試機制**：當請求失敗時（如速率限制、金鑰失效等），自動使用其他可用金鑰重試，最大化請求成功率
 - **💚 金鑰健康檢測**：當失敗次數「超過」閾值（`max_key_failures`）時，會自動標記為 `invalid` 並從輪換池中移除
+- **🌐 模型路由 (Gateway)**：OpenAI 相容的 `/v1/*` 端點，定義虛擬模型名稱並映射到一或多個 provider，請求時自動路由與改寫
 - **📊 請求日誌與統計**：詳細記錄每次 API 請求的供應商、金鑰、狀態、回應時間等資訊，提供完整的使用追蹤和分析能力
-- **🎨 Web 管理介面**：輕鬆管理供應商、金鑰配置，查看請求日誌和統計圖表
+- **🎨 Web 管理介面**：輕鬆管理供應商、金鑰、模型路由配置，查看請求日誌和統計圖表
 - **⚡ Serverless**：部署在 Cloudflare Workers 上，不需要 24 小時運行的伺服器，免費開始
 
 ## 系統架構
@@ -61,6 +62,7 @@ npm run cf-typegen
 - **Providers / Provider Keys**：管理供應商與 API 金鑰。支援的 Provider Type：
   - `openai`：OpenAI 相容 API（Bearer Token 認證）
   - `gemini`：Google Gemini API（x-goog-api-key 認證）
+- **Models**：管理模型路由，定義虛擬模型名稱並將其映射到一或多個 provider 的實際模型。
 - **Logs**：查看所有代理請求的詳細記錄。
 - **Settings**：調整系統參數（最大重試次數、失敗閾值等）。
 
@@ -81,6 +83,37 @@ curl -X POST "http://localhost:5173/proxy/openai/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -d '{
         "model": "gpt-5-mini",
+        "messages": [{ "role": "user", "content": "Hi" }]
+      }'
+```
+
+### Gateway API（OpenAI 相容端點）
+- 基礎路徑：`/v1/*`
+- 認證方式：使用 `AUTH_TOKEN`（Bearer Token）
+- 執行流程：
+  1. 解析 request body 中的 `model` 欄位
+  2. 查詢 model mappings，找出該虛擬模型對應的所有已啟用 provider
+  3. 隨機選取一個 mapping，以實際模型名稱覆寫 body
+  4. 內部轉發至 `/proxy/:provider/*`，複用既有的 key 輪換與重試邏輯
+
+#### 可用端點
+```
+GET  /v1/models              # 列出所有已啟用且有 mapping 的模型
+POST /v1/chat/completions    # Chat completions（及其他 /v1/* POST 路徑）
+```
+
+#### Example
+```bash
+# 列出可用模型
+curl "http://localhost:5173/v1/models" \
+  -H "Authorization: Bearer ${AUTH_TOKEN}"
+
+# 使用虛擬模型名稱呼叫
+curl -X POST "http://localhost:5173/v1/chat/completions" \
+  -H "Authorization: Bearer ${AUTH_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "my-gpt",
         "messages": [{ "role": "user", "content": "Hi" }]
       }'
 ```
