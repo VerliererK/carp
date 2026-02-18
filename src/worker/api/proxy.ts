@@ -84,25 +84,35 @@ export const proxyHandler = async (c: Context) => {
   throw new HTTPException(502, { message: lastError?.message || 'Unknown error' });
 };
 
+const ALLOWED_HEADERS = new Set([
+  'content-type',
+  'accept',
+  'accept-encoding',
+  'accept-language',
+]);
+
+const ALLOWED_HEADER_PREFIXES = [
+  'anthropic-',
+  'openai-',
+];
+
 function sanitizeHeaders(
   originalHeaders: Headers,
   provider: Provider
 ): Headers {
-  const headers = new Headers(originalHeaders);
+  const headers = new Headers();
 
-  // Remove Cloudflare-specific headers
-  headers.delete('host');
-  headers.delete('cf-connecting-ip');
-  headers.delete('cf-ray');
-  headers.delete('cf-ipcountry');
-  headers.delete('cf-visitor');
+  for (const key of ALLOWED_HEADERS) {
+    const value = originalHeaders.get(key);
+    if (value) headers.set(key, value);
+  }
 
-  // Remove headers that may interfere with the request
-  headers.delete('content-length');      // Let fetch auto-calculate
-  headers.delete('transfer-encoding');   // Avoid conflicts
-  headers.delete('connection');          // HTTP/1.1 specific, not needed
-
-  headers.delete('authorization');
+  for (const [key, value] of originalHeaders.entries()) {
+    const lower = key.toLowerCase();
+    if (ALLOWED_HEADER_PREFIXES.some((p) => lower.startsWith(p))) {
+      headers.set(key, value);
+    }
+  }
 
   // Add custom headers
   if (provider.custom_headers) {
