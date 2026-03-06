@@ -4,8 +4,8 @@ import { HTTPException } from 'hono/http-exception';
 import apiRoutes from './api';
 import { proxyHandler, matchGemini } from './api/proxy';
 import { createGatewayHandler, listModelsHandler } from './api/gateway';
-import { requestLogs } from './lib/db';
-import { getLogRetentionDays } from './lib/configs';
+import { requestLogs, providers, apiKeys } from './lib/db';
+import { getLogRetentionDays, getTestKeyConcurrency } from './lib/configs';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -67,14 +67,50 @@ app.route('/api', apiRoutes);
 export default {
   fetch: app.fetch,
   scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    const task = (async () => {
-      const retentionDays = await getLogRetentionDays(env.DB);
-      const deleted = await requestLogs.deleteOlderThan(env.DB, retentionDays);
-      if (deleted > 0) {
-        console.info(`[scheduled] deleted ${deleted} request log(s)`);
-      }
-    })();
+    if (controller.cron === '0 0 * * *') {
+      ctx.waitUntil((async () => {
+        const retentionDays = await getLogRetentionDays(env.DB);
+        const deleted = await requestLogs.deleteOlderThan(env.DB, retentionDays);
+        if (deleted > 0) {
+          console.info(`[scheduled] deleted ${deleted} request log(s)`);
+        }
+      })());
+    }
 
-    ctx.waitUntil(task);
+    if (controller.cron === '0 * * * *') {
+      ctx.waitUntil((async () => {
+        const allProviders = await providers.list(env.DB);
+        const targets: Array<{ provider: typeof allProviders[0]; key: { id: number } }> = [];
+
+        for (const p of allProviders) {
+          if (p.enabled !== 1 || p.invalid_key_count <= 0) continue;
+          const invalidKeys = await apiKeys.list(env.DB, p.id, 'invalid');
+          for (const k of invalidKeys) {
+            targets.push({ provider: p, key: k });
+          }
+        }
+
+        if (targets.length === 0) return;
+
+        const concurrencyLimit = await getTestKeyConcurrency(env.DB);
+        const pool = new Set<Promise<void>>();
+
+        for (const { provider, key } of targets) {
+          const task = (async () => {
+            const res = await app.request(
+              `/api/admin/providers/${provider.name}/keys/${key.id}/test`,
+              { method: 'GET', headers: { Authorization: `Bearer ${env.AUTH_TOKEN}` } },
+              env,
+            );
+            if (res.ok) {
+              console.log(`[scheduled] provider=${provider.name} key_id=${key.id} -> active!!`);
+            }
+          })().then(() => { pool.delete(task); });
+          pool.add(task);
+          if (pool.size >= concurrencyLimit) await Promise.race(pool);
+        }
+        await Promise.all(pool);
+      })());
+    }
   }
 };
