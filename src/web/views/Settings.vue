@@ -47,6 +47,14 @@ const settingItems: SettingItem[] = [
     max: SETTING_DEFINITIONS.log_retention_days.max,
     default: SETTING_DEFINITIONS.log_retention_days.default,
   },
+  {
+    key: 'test_key_concurrency',
+    label: 'Test Key Concurrency',
+    description: 'Max concurrent requests when testing keys (batch test & hourly revalidation).',
+    min: SETTING_DEFINITIONS.test_key_concurrency.min,
+    max: SETTING_DEFINITIONS.test_key_concurrency.max,
+    default: SETTING_DEFINITIONS.test_key_concurrency.default,
+  },
 ];
 
 const settingGroups: SettingGroup[] = [

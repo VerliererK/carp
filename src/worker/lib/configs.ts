@@ -23,3 +23,7 @@ export async function getMaxKeyFailures(db: D1Database): Promise<number> {
 export async function getLogRetentionDays(db: D1Database): Promise<number> {
   return getValue(db, 'log_retention_days');
 }
+
+export async function getTestKeyConcurrency(db: D1Database): Promise<number> {
+  return getValue(db, 'test_key_concurrency');
+}

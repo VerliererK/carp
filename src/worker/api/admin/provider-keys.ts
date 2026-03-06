@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { providers, apiKeys } from '../../lib/db';
-import { getMaxKeyFailures } from '../../lib/configs';
+import { getMaxKeyFailures, getTestKeyConcurrency } from '../../lib/configs';
 import type { Provider, ApiKey } from '@shared/types';
 import fetchTimeout from '@shared/fetchTimeout';
 
@@ -314,7 +314,7 @@ app.post('/test-batch', async (c) => {
     }
   };
 
-  const CONCURRENCY_LIMIT = 5;
+  const concurrencyLimit = await getTestKeyConcurrency(c.env.DB);
   const pool = new Set<Promise<void>>();
   const results: Array<{ id: number; success: boolean; }> = [];
   for (const key of keys) {
@@ -323,7 +323,7 @@ app.post('/test-batch', async (c) => {
       pool.delete(task);
     });
     pool.add(task);
-    if (pool.size >= CONCURRENCY_LIMIT) {
+    if (pool.size >= concurrencyLimit) {
       await Promise.race(pool);
     }
   }

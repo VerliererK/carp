@@ -9,6 +9,7 @@ export const SETTING_DEFINITIONS = {
   max_attempts: { kind: 'int', default: 3, min: 1, max: 10 },
   max_key_failures: { kind: 'int', default: 3, min: 1, max: 10 },
   log_retention_days: { kind: 'int', default: 7, min: 1, max: 365 },
+  test_key_concurrency: { kind: 'int', default: 5, min: 1, max: 100 },
 } satisfies Record<string, ManagedSettingDefinition>;
 
 export type SettingKey = keyof typeof SETTING_DEFINITIONS;
