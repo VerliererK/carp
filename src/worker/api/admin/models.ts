@@ -1,7 +1,9 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { validator } from 'hono/validator';
-import { models, modelMappings, providers } from '../../lib/db';
+import { models, modelMappings, providers, apiKeys } from '../../lib/db';
+import fetchTimeout from '@shared/fetchTimeout';
+import { getMaxKeyFailures } from '../../lib/configs';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -189,6 +191,81 @@ app.delete('/:name/mappings/:id', async (c) => {
 
   await modelMappings.delete(c.env.DB, mappingId);
   return c.json({ message: 'Mapping deleted' });
+});
+
+// GET /:name/mappings/:id/test
+app.get('/:name/mappings/:id/test', async (c) => {
+  const name = c.req.param('name');
+  const db = c.env.DB;
+
+  const model = await models.getByName(db, name);
+  if (!model) throw new HTTPException(404, { message: 'Model not found' });
+
+  const mappingId = Number(c.req.param('id'));
+  if (!Number.isInteger(mappingId)) throw new HTTPException(400, { message: 'Invalid mapping id' });
+
+  const mapping = await modelMappings.get(db, mappingId);
+  if (!mapping || mapping.model_id !== model.id) {
+    throw new HTTPException(404, { message: 'Mapping not found' });
+  }
+
+  const provider = await providers.get(db, mapping.provider_id);
+  if (!provider) throw new HTTPException(404, { message: 'Provider not found' });
+
+  const keys = await apiKeys.listLRU(db, provider.id, { limit: 1 });
+  if (keys.length === 0) {
+    return c.json({ success: false, status: 0, error: 'No active API keys available for this provider' }, 400);
+  }
+  const key = keys[0];
+
+  const baseUrl = provider.base_url.replace(/\/+$/, '');
+  let response: Response;
+
+  try {
+    if (provider.type === 'gemini') {
+      const testUrl = `${baseUrl}/v1beta/models/${mapping.model_name}:generateContent`;
+      response = await fetchTimeout(testUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': key.key,
+        },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] }),
+      });
+    } else {
+      const testPath = (provider.test_path || 'v1/chat/completions').replace(/^\/+/, '');
+      const testUrl = `${baseUrl}/${testPath}`;
+      const useMaxCompletionTokens = /^gpt-5/.test(mapping.model_name);
+      response = await fetchTimeout(testUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${key.key}`,
+        },
+        body: JSON.stringify({
+          model: mapping.model_name,
+          messages: [{ role: 'user', content: 'Hi' }],
+          stream: false,
+          ...(useMaxCompletionTokens ? { max_completion_tokens: 64 } : { max_tokens: 64 }),
+        }),
+      });
+    }
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      return c.json({ success: false, status: 0, error: 'Request Timeout' }, 408);
+    }
+    throw e;
+  }
+
+  if (!response.ok) {
+    const maxKeyFailures = await getMaxKeyFailures(db);
+    await apiKeys.recordFailure(db, key.id, maxKeyFailures);
+    const errorText = await response.text();
+    return c.json({ success: false, status: response.status, error: errorText }, 400);
+  }
+
+  await apiKeys.resetFailure(db, key.id);
+  return c.json({ success: true, status: response.status });
 });
 
 export default app;

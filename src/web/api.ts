@@ -411,3 +411,12 @@ export async function deleteModelMapping(modelName: string, mappingId: number): 
   });
   if (!response.ok) throw new Error('Failed to delete mapping');
 }
+
+export async function testModelMapping(modelName: string, mappingId: number): Promise<{ success: boolean; status: number; error?: string }> {
+  const response = await authorizedFetch(`${API_BASE}/models/${modelName}/mappings/${mappingId}/test`);
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error?.error || 'Failed to test mapping');
+  }
+  return await response.json();
+}

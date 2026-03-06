@@ -3,7 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
 import type { Model, ModelMappingWithProvider, ProviderWithKeyCounts } from '@shared/types';
-import { getModel, listProviders, listProviderModels, createModelMapping, updateModelMapping, deleteModelMapping } from '@/api';
+import { getModel, listProviders, listProviderModels, createModelMapping, updateModelMapping, deleteModelMapping, testModelMapping } from '@/api';
 import BaseModal from './BaseModal.vue';
 
 interface Props {
@@ -37,6 +37,8 @@ const editingId = ref<number | 'new' | null>(null);
 const editForm = ref({ provider_id: 0, model_name: '' });
 const savingMapping = ref(false);
 const deletingMappingId = ref<number | null>(null);
+const testingMappingId = ref<number | null>(null);
+const testedMappingId = ref<number | null>(null);
 
 // Provider model browsing
 const providerModels = ref<string[]>([]);
@@ -68,6 +70,8 @@ watch([() => props.modelValue, () => props.model], ([open]) => {
   if (!open) {
     editingId.value = null;
     mappings.value = [];
+    testingMappingId.value = null;
+    testedMappingId.value = null;
     return;
   }
   if (props.model) {
@@ -203,6 +207,23 @@ const handleDeleteMapping = async (mapping: ModelMappingWithProvider) => {
     deletingMappingId.value = null;
   }
 };
+
+const handleTestMapping = async (mapping: ModelMappingWithProvider) => {
+  if (!props.model) return;
+  try {
+    testingMappingId.value = mapping.id;
+    await testModelMapping(props.model.name, mapping.id);
+    testedMappingId.value = mapping.id;
+    setTimeout(() => {
+      if (testedMappingId.value === mapping.id) testedMappingId.value = null;
+    }, 2000);
+    toast.success('Mapping test succeeded');
+  } catch (e: any) {
+    toast.error(e.message || 'Failed to test mapping');
+  } finally {
+    if (testingMappingId.value === mapping.id) testingMappingId.value = null;
+  }
+};
 </script>
 
 <template>
@@ -252,6 +273,15 @@ const handleDeleteMapping = async (mapping: ModelMappingWithProvider) => {
                 </div>
 
                 <div class="flex items-center gap-0.5 shrink-0 ml-2">
+                  <button type="button" @click="handleTestMapping(mapping)"
+                    :disabled="!mapping.provider_enabled || editingId !== null || deletingMappingId !== null || (testingMappingId !== null && testingMappingId !== mapping.id)"
+                    class="p-1.5 rounded-full text-text-tertiary cursor-pointer hover:text-brand-primary hover:bg-card-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    :title="testingMappingId === mapping.id ? 'Testing...' : (testedMappingId === mapping.id ? 'Test succeeded' : 'Test mapping')">
+                    <Icon v-if="testingMappingId === mapping.id" icon="lucide:loader-2"
+                      class="w-3.5 h-3.5 animate-spin" />
+                    <Icon v-else :icon="testedMappingId === mapping.id ? 'lucide:check' : 'lucide:zap'"
+                      class="w-3.5 h-3.5" :class="testedMappingId === mapping.id ? 'text-status-success-text' : ''" />
+                  </button>
                   <button type="button" @click="startEdit(mapping)"
                     :disabled="editingId !== null || deletingMappingId !== null"
                     class="p-1.5 rounded-full text-text-tertiary cursor-pointer hover:text-brand-primary hover:bg-card-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
