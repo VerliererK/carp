@@ -529,6 +529,11 @@ export const modelMappings = {
       JOIN models m ON m.id = mm.model_id
       JOIN providers p ON p.id = mm.provider_id
       WHERE m.name = ? AND m.enabled = 1 AND p.enabled = 1
+        AND EXISTS (
+          SELECT 1
+          FROM api_keys k
+          WHERE k.provider_id = p.id AND k.status = 'active'
+        )
     `).bind(name).all<{ provider_name: string; model_name: string }>();
     return result.results;
   },
