@@ -1,9 +1,6 @@
 import type { Context, Hono } from 'hono';
 import { models, modelMappings } from '../lib/db';
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+import { pickRandom } from '../lib/random';
 
 export async function listModelsHandler(c: Context<{ Bindings: Env }>) {
   const allModels = await models.list(c.env.DB);
@@ -42,6 +39,9 @@ export function createGatewayHandler(app: Hono<{ Bindings: Env }>) {
     }
 
     const picked = pickRandom(mappings);
+    if (!picked) {
+      return c.json({ error: `Unknown model "${rawModel}"` }, 400);
+    }
 
     // Rewrite body with the actual model name
     const rewrittenBody = { ...body, model: picked.model_name };

@@ -3,6 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Provider, RequestLog } from '@shared/types';
 import { providers, apiKeys, requestLogs } from '../lib/db';
 import { getMaxAttempts, getMaxKeyFailures } from '../lib/configs';
+import { pickRandom } from '../lib/random';
 
 export const matchGemini = (url: string): boolean => {
   return url.match(/\/models\/[^/]+:(?:stream)?[Gg]enerateContent/) !== null;
@@ -43,7 +44,7 @@ export const proxyHandler = async (c: Context) => {
   // Retry loop
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const apiKeyPool = await apiKeys.listLRU(c.env.DB, provider.id, { limit: 3, excludeIds: Array.from(excludedKeyIds) });
-    const apiKey = apiKeyPool.length > 0 ? pickRandom(apiKeyPool) : null;
+    const apiKey = pickRandom(apiKeyPool);
     if (!apiKey) throw new HTTPException(503, { message: 'No available API keys' });
 
     if (isGemini) {
@@ -127,10 +128,6 @@ function sanitizeHeaders(
   }
 
   return headers;
-}
-
-function pickRandom<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)];
 }
 
 function isRetryableStatus(status: number): boolean {
