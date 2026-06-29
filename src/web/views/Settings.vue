@@ -71,6 +71,7 @@ const original = ref<Record<SettingKey, number>>({} as Record<SettingKey, number
 const form = reactive<Record<SettingKey, number>>({} as Record<SettingKey, number>);
 const saveTimers = new Map<SettingKey, ReturnType<typeof setTimeout>>();
 const SAVE_DEBOUNCE_MS = 600;
+const appVersion = __APP_VERSION__;
 
 const fetchSettings = async () => {
   loading.value = true;
@@ -231,6 +232,8 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </div>
+
+    <p class="px-1 text-xs text-text-tertiary font-mono">CARP v{{ appVersion }}</p>
 
   </div>
 </template>
