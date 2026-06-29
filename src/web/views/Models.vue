@@ -151,10 +151,10 @@ onMounted(() => {
     </button>
   </div>
 
-  <div class="space-y-4">
-    <ModelCard v-for="model in models" :key="model.name" :model="model" class="cursor-pointer"
-      @click="handleEditModel(model.name)" @toggle="handleToggleModel" @edit="handleEditModel"
-      @delete="handleDeleteModel" />
+  <div v-if="models.length"
+    class="space-y-3 md:space-y-0 md:bg-card md:border md:border-border-subtle md:rounded-2xl md:shadow-float md:overflow-hidden md:divide-y md:divide-border-subtle">
+    <ModelCard v-for="model in models" :key="model.name" :model="model" @click="handleEditModel(model.name)"
+      @toggle="handleToggleModel" @edit="handleEditModel" @delete="handleDeleteModel" />
   </div>
 
   <!-- Delete Model Dialog -->
