@@ -2,8 +2,8 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { validator } from 'hono/validator';
 import { models, modelMappings, providers, apiKeys } from '../../lib/db';
-import fetchTimeout from '@shared/fetchTimeout';
 import { getMaxKeyFailures } from '../../lib/configs';
+import { testProvider } from '../../lib/provider-request';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -218,38 +218,10 @@ app.get('/:name/mappings/:id/test', async (c) => {
   }
   const key = keys[0];
 
-  const baseUrl = provider.base_url.replace(/\/+$/, '');
   let response: Response;
 
   try {
-    if (provider.type === 'gemini') {
-      const testUrl = `${baseUrl}/v1beta/models/${mapping.model_name}:generateContent`;
-      response = await fetchTimeout(testUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': key.key,
-        },
-        body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] }),
-      });
-    } else {
-      const testPath = (provider.test_path || 'v1/chat/completions').replace(/^\/+/, '');
-      const testUrl = `${baseUrl}/${testPath}`;
-      const useMaxCompletionTokens = /^gpt-5/.test(mapping.model_name);
-      response = await fetchTimeout(testUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key.key}`,
-        },
-        body: JSON.stringify({
-          model: mapping.model_name,
-          messages: [{ role: 'user', content: 'Hi' }],
-          stream: false,
-          ...(useMaxCompletionTokens ? { max_completion_tokens: 64 } : { max_tokens: 64 }),
-        }),
-      });
-    }
+    response = await testProvider(provider, key.key, mapping.model_name);
   } catch (e: any) {
     if (e?.name === 'AbortError') {
       return c.json({ success: false, status: 0, error: 'Request Timeout' }, 408);

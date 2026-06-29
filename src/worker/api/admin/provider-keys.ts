@@ -3,7 +3,7 @@ import { HTTPException } from 'hono/http-exception';
 import { providers, apiKeys } from '../../lib/db';
 import { getMaxKeyFailures, getTestKeyConcurrency } from '../../lib/configs';
 import type { Provider, ApiKey } from '@shared/types';
-import fetchTimeout from '@shared/fetchTimeout';
+import { testProvider } from '../../lib/provider-request';
 
 const app = new Hono<{ Bindings: Env, Variables: { provider: Provider } }>();
 
@@ -208,42 +208,7 @@ app.post('/:keyId/reset', async (c) => {
 });
 
 const testKey = async (key: ApiKey, provider: Provider) => {
-  const { base_url, type, test_path, test_model } = provider;
-  const baseUrl = base_url.replace(/\/+$/, '');
-  let response: Response;
-  if (type === 'gemini') {
-    const testUrl = `${baseUrl}/v1beta/models/${test_model}:generateContent`;
-    response = await fetchTimeout(testUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': `${key.key}`
-      },
-      body: JSON.stringify({ contents: [{ parts: [{ text: 'Hi' }] }] })
-    });
-  } else {
-    const testPath = (test_path || 'v1/chat/completions').replace(/^\/+/, '');
-    const testUrl = `${baseUrl}/${testPath}`;
-    const useMaxCompletionTokens = /^gpt-5/.test(test_model || '');
-    response = await fetchTimeout(testUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key.key}`
-      },
-      body: JSON.stringify({
-        model: test_model,
-        messages: [{
-          role: 'user',
-          content: 'Hi',
-        }],
-        stream: false,
-        ...(useMaxCompletionTokens ? { max_completion_tokens: 64 } : { max_tokens: 64 })
-      })
-    });
-  }
-
-  return response;
+  return testProvider(provider, key.key, provider.test_model);
 };
 
 const isTimeoutError = (err: any) => err?.name === 'AbortError';

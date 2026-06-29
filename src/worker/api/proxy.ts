@@ -1,9 +1,10 @@
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import type { Provider, RequestLog } from '@shared/types';
+import type { RequestLog } from '@shared/types';
 import { providers, apiKeys, requestLogs } from '../lib/db';
 import { getMaxAttempts, getMaxKeyFailures } from '../lib/configs';
 import { pickRandom } from '../lib/random';
+import { sanitizeHeaders } from '../lib/provider-request';
 
 export const matchGemini = (url: string): boolean => {
   return url.match(/\/models\/[^/]+:(?:stream)?[Gg]enerateContent/) !== null;
@@ -84,51 +85,6 @@ export const proxyHandler = async (c: Context) => {
   // All retries exhausted
   throw new HTTPException(502, { message: lastError?.message || 'Unknown error' });
 };
-
-const ALLOWED_HEADERS = new Set([
-  'content-type',
-  'accept',
-  'accept-encoding',
-  'accept-language',
-]);
-
-const ALLOWED_HEADER_PREFIXES = [
-  'anthropic-',
-  'openai-',
-];
-
-function sanitizeHeaders(
-  originalHeaders: Headers,
-  provider: Provider
-): Headers {
-  const headers = new Headers();
-
-  for (const key of ALLOWED_HEADERS) {
-    const value = originalHeaders.get(key);
-    if (value) headers.set(key, value);
-  }
-
-  for (const [key, value] of originalHeaders.entries()) {
-    const lower = key.toLowerCase();
-    if (ALLOWED_HEADER_PREFIXES.some((p) => lower.startsWith(p))) {
-      headers.set(key, value);
-    }
-  }
-
-  // Add custom headers
-  if (provider.custom_headers) {
-    try {
-      const customHeaders = JSON.parse(provider.custom_headers);
-      for (const [key, value] of Object.entries(customHeaders)) {
-        headers.set(key, value as string);
-      }
-    } catch (e) {
-      console.error('Failed to parse custom_headers:', e);
-    }
-  }
-
-  return headers;
-}
 
 function isRetryableStatus(status: number): boolean {
   return status === 401 || status === 429 || status >= 500;
