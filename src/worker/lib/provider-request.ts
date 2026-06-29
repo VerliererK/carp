@@ -65,6 +65,16 @@ export function testProvider(
   return testChatCompletions(provider, apiKey, model);
 }
 
+export function listModels(
+  provider: Provider,
+  apiKey: string
+): Promise<Response> {
+  const baseUrl = provider.base_url.replace(/\/+$/, '');
+  const modelsPath = provider.type === 'gemini' ? 'v1beta/models' : 'v1/models';
+
+  return fetchTimeout(`${baseUrl}/${modelsPath}`, { headers: createHeaders(provider, apiKey) });
+}
+
 function testChatCompletions(
   provider: Provider,
   apiKey: string,

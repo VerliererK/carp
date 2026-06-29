@@ -99,13 +99,11 @@ export async function deleteProvider(name: string): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete provider');
 }
 
-export async function listProviderModels(providerName: string, providerType: string): Promise<any> {
-  let url = `/proxy/${providerName}/v1/models`;
-  if (providerType === 'gemini') url = `/proxy/${providerName}/v1beta/models`;
-  const response = await authorizedFetch(url);
+export async function listProviderModels(providerName: string): Promise<any> {
+  const response = await authorizedFetch(`${API_BASE}/providers/${providerName}/models`);
   if (!response.ok) {
     const error = await response.json().catch(() => { });
-    throw new Error(error?.error?.message || error?.message || 'Failed to fetch models');
+    throw new Error(error?.error?.message || error?.message || error?.error || 'Failed to fetch models');
   }
   const json = await response.json();
   if (!json) throw new Error('Invalid response from provider');

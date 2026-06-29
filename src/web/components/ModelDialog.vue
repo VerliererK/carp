@@ -141,7 +141,7 @@ const toggleModelPicker = async () => {
   try {
     loadingProviderModels.value = true;
     showModelPicker.value = true;
-    const models = await listProviderModels(provider.name, provider.type);
+    const models = await listProviderModels(provider.name);
     providerModels.value = Array.isArray(models) ? models : [];
     pickerProviderId.value = provider.id;
   } catch (e: any) {

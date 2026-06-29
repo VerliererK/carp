@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { validator } from 'hono/validator';
-import { providers } from '../../lib/db';
-import type { Provider } from '@shared/types';
+import { providers, apiKeys } from '../../lib/db';
+import type { Provider, ApiKey } from '@shared/types';
 import keysRoute from './provider-keys';
+import { pickRandom } from '../../lib/random';
+import { listModels } from '../../lib/provider-request';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -12,6 +14,42 @@ app.route('/:name/keys', keysRoute);
 app.get('/', async (c) => {
   const result = await providers.list(c.env.DB);
   return c.json(result);
+});
+
+app.get('/:name/models', async (c) => {
+  const db = c.env.DB;
+  const name = c.req.param('name');
+  const provider = await providers.getByName(db, name);
+  if (!provider) throw new HTTPException(404, { message: 'Provider not found' });
+
+  const activeKeys = await apiKeys.listLRU(db, provider.id, { limit: 1 });
+  let key: ApiKey | undefined = activeKeys[0];
+
+  if (!key) {
+    const allKeys = await apiKeys.list(db, provider.id);
+    key = pickRandom(allKeys);
+  }
+
+  if (!key) {
+    return c.json({ success: false, status: 0, error: 'No API keys available for this provider' }, 400);
+  }
+
+  let response: Response;
+  try {
+    response = await listModels(provider, key.key);
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      return c.json({ success: false, status: 0, error: 'Request Timeout' }, 408);
+    }
+    throw e;
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    return c.json({ success: false, status: response.status, error: errorText || 'Failed to fetch models' }, 400);
+  }
+
+  return response;
 });
 
 app.get('/:name', async (c) => {

@@ -183,7 +183,7 @@ const fetchModels = async () => {
   modelsList.value = [];
 
   try {
-    const data = await listProviderModels(form.value.name, form.value.type);
+    const data = await listProviderModels(form.value.name);
     if (Array.isArray(data)) {
       modelsList.value = data;
       if (data.length === 0) {
