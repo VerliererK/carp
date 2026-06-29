@@ -155,8 +155,9 @@ onMounted(() => {
     </button>
   </div>
 
-  <div class="space-y-4">
-    <ProviderCard v-for="provider in providers" :key="provider.id" :provider="provider" class="cursor-pointer"
+  <div v-if="providers.length"
+    class="space-y-3 md:space-y-0 md:bg-card md:border md:border-border-subtle md:rounded-2xl md:shadow-float md:overflow-hidden md:divide-y md:divide-border-subtle">
+    <ProviderCard v-for="provider in providers" :key="provider.id" :provider="provider"
       @toggle="handleToggle" @edit="handleEdit" @delete="handleDelete" @click="navigateToKeys(provider.name)" />
   </div>
 
