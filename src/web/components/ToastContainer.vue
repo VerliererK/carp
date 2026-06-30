@@ -15,7 +15,7 @@ const getIcon = (type: string) => {
 </script>
 
 <template>
-  <div class="fixed top-4 right-4 z-50 flex flex-col gap-3 w-full max-w-sm pointer-events-none p-4">
+  <div class="fixed top-4 right-4 z-[60] flex flex-col gap-3 w-full max-w-sm pointer-events-none p-4">
     <TransitionGroup name="toast">
       <div v-for="toast in toasts" :key="toast.id"
         class="pointer-events-auto relative flex items-start gap-3 p-4 pr-10 rounded-2xl border shadow-float backdrop-blur-md transition-all duration-300"
