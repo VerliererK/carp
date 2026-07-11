@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { useToast } from '@/composables/useToast';
 import { Icon } from '@iconify/vue';
 import type { Model, ModelMappingWithProvider, ProviderWithKeyCounts } from '@shared/types';
@@ -23,6 +24,7 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
+const router = useRouter();
 
 const form = ref({ name: '' });
 const error = ref<string | null>(null);
@@ -224,6 +226,10 @@ const handleTestMapping = async (mapping: ModelMappingWithProvider) => {
     if (testingMappingId.value === mapping.id) testingMappingId.value = null;
   }
 };
+
+const navigateToProvider = (providerName: string) => {
+  router.push({ name: 'provider-keys', params: { name: providerName } });
+};
 </script>
 
 <template>
@@ -267,7 +273,11 @@ const handleTestMapping = async (mapping: ModelMappingWithProvider) => {
                   <div class="w-2 h-2 rounded-full shrink-0"
                     :class="mapping.provider_enabled ? 'bg-status-success-text' : 'bg-border-subtle'"
                     :title="mapping.provider_enabled ? 'Provider enabled' : 'Provider disabled'"></div>
-                  <span class="text-sm font-medium text-text-primary truncate">{{ mapping.provider_name }}</span>
+                  <button type="button" @click="navigateToProvider(mapping.provider_name)"
+                    class="min-w-0 truncate rounded-sm text-left text-sm font-medium text-text-primary cursor-pointer transition-colors duration-200 hover:text-brand-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-primary/40"
+                    :title="`Open ${mapping.provider_name} provider`">
+                    {{ mapping.provider_name }}
+                  </button>
                   <Icon icon="lucide:arrow-right" class="w-3 h-3 text-text-tertiary shrink-0" />
                   <span class="text-sm font-mono text-text-secondary truncate">{{ mapping.model_name }}</span>
                 </div>
