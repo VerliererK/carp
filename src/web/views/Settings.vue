@@ -3,18 +3,30 @@ import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { Icon } from '@iconify/vue';
 import { useToast } from '@/composables/useToast';
 import { listSettings, updateSetting } from '@/api';
-import { SETTING_DEFINITIONS, type SettingKey } from '@shared/settings';
+import { SETTING_DEFINITIONS, parseRetryStatusCodes, type SettingKey, type SettingValue } from '@shared/settings';
 
 const toast = useToast();
 
-interface SettingItem {
+interface BaseSettingItem {
   key: SettingKey;
   label: string;
   description: string;
+}
+
+interface NumberSettingItem extends BaseSettingItem {
+  kind: 'number';
   min: number;
   max: number;
   default: number;
 }
+
+interface TextSettingItem extends BaseSettingItem {
+  kind: 'text';
+  default: string;
+  normalize: (value: string) => string;
+}
+
+type SettingItem = NumberSettingItem | TextSettingItem;
 
 interface SettingGroup {
   key: string;
@@ -24,6 +36,7 @@ interface SettingGroup {
 
 const settingItems: SettingItem[] = [
   {
+    kind: 'number',
     key: 'max_attempts',
     label: 'Max Retry Attempts',
     description: 'How many times to retry with another key when a request fails.',
@@ -32,6 +45,7 @@ const settingItems: SettingItem[] = [
     default: SETTING_DEFINITIONS.max_attempts.default,
   },
   {
+    kind: 'number',
     key: 'max_key_failures',
     label: 'Max Key Failures',
     description: 'Consecutive failures before a key is marked invalid.',
@@ -40,6 +54,7 @@ const settingItems: SettingItem[] = [
     default: SETTING_DEFINITIONS.max_key_failures.default,
   },
   {
+    kind: 'number',
     key: 'log_retention_days',
     label: 'Log Retention',
     description: 'How many days request logs are kept before cleanup.',
@@ -48,12 +63,21 @@ const settingItems: SettingItem[] = [
     default: SETTING_DEFINITIONS.log_retention_days.default,
   },
   {
+    kind: 'number',
     key: 'test_key_concurrency',
     label: 'Test Key Concurrency',
     description: 'Max concurrent requests when testing keys (batch test & hourly revalidation).',
     min: SETTING_DEFINITIONS.test_key_concurrency.min,
     max: SETTING_DEFINITIONS.test_key_concurrency.max,
     default: SETTING_DEFINITIONS.test_key_concurrency.default,
+  },
+  {
+    kind: 'text',
+    key: 'retry_status_codes',
+    label: 'Retry Status Codes',
+    description: 'Response status codes that trigger a retry with another key. Comma-separated, accepts exact codes (100~599) and wildcards (1xx~5xx). Leave empty to never retry on status.',
+    default: SETTING_DEFINITIONS.retry_status_codes.default,
+    normalize: value => parseRetryStatusCodes(value).join(','),
   },
 ];
 
@@ -67,8 +91,8 @@ const settingGroups: SettingGroup[] = [
 
 const loading = ref(true);
 const saving = reactive<Record<SettingKey, boolean>>({} as Record<SettingKey, boolean>);
-const original = ref<Record<SettingKey, number>>({} as Record<SettingKey, number>);
-const form = reactive<Record<SettingKey, number>>({} as Record<SettingKey, number>);
+const original = ref<Record<SettingKey, SettingValue>>({} as Record<SettingKey, SettingValue>);
+const form = reactive<Record<SettingKey, SettingValue>>({} as Record<SettingKey, SettingValue>);
 const saveTimers = new Map<SettingKey, ReturnType<typeof setTimeout>>();
 const SAVE_DEBOUNCE_MS = 600;
 const appVersion = __APP_VERSION__;
@@ -78,7 +102,7 @@ const fetchSettings = async () => {
   try {
     const data = await listSettings();
     for (const item of settingItems) {
-      const val = (data[item.key] as number) ?? item.default;
+      const val = data[item.key] ?? item.default;
       original.value[item.key] = val;
       form[item.key] = val;
     }
@@ -89,7 +113,7 @@ const fetchSettings = async () => {
   }
 };
 
-const saveSetting = async (key: SettingKey, nextValue = form[key]) => {
+const saveSetting = async (key: SettingKey, nextValue: SettingValue = form[key]) => {
   if (saving[key]) return;
   if (nextValue === original.value[key]) return;
   saving[key] = true;
@@ -109,6 +133,7 @@ const saveSetting = async (key: SettingKey, nextValue = form[key]) => {
 };
 
 const clampValue = (item: SettingItem) => {
+  if (item.kind !== 'number') return;
   const raw = Number(form[item.key]);
   if (!Number.isFinite(raw)) {
     form[item.key] = original.value[item.key] ?? item.default;
@@ -121,7 +146,12 @@ const clampValue = (item: SettingItem) => {
 };
 
 const fullDescription = (item: SettingItem) =>
-  `${item.description} (range: ${item.min}~${item.max}, default: ${item.default})`;
+  item.kind === 'number'
+    ? `${item.description} (range: ${item.min}~${item.max}, default: ${item.default})`
+    : `${item.description} (default: ${item.default})`;
+
+const atMin = (item: SettingItem) => item.kind === 'number' && Number(form[item.key]) <= item.min;
+const atMax = (item: SettingItem) => item.kind === 'number' && Number(form[item.key]) >= item.max;
 
 const cancelScheduledSave = (key: SettingKey) => {
   const timer = saveTimers.get(key);
@@ -132,6 +162,7 @@ const cancelScheduledSave = (key: SettingKey) => {
 
 const scheduleSave = (item: SettingItem) => {
   const key = item.key;
+  if (item.kind !== 'number') return; // Text settings save on blur/enter only, so typing never trips validation
   if (saving[key]) return;
   const value = Number(form[key]);
   if (!Number.isFinite(value)) return;
@@ -151,14 +182,27 @@ const scheduleSave = (item: SettingItem) => {
 };
 
 const stepValue = (item: SettingItem, delta: number) => {
-  form[item.key] += delta;
+  if (item.kind !== 'number') return;
+  form[item.key] = Number(form[item.key]) + delta;
   scheduleSave(item);
 };
 
 const saveNow = (item: SettingItem) => {
   if (saving[item.key]) return;
   cancelScheduledSave(item.key);
-  clampValue(item);
+
+  if (item.kind === 'text') {
+    try {
+      form[item.key] = item.normalize(String(form[item.key] ?? ''));
+    } catch (e: any) {
+      toast.error(e.message || 'Invalid value');
+      form[item.key] = original.value[item.key];
+      return;
+    }
+  } else {
+    clampValue(item);
+  }
+
   void saveSetting(item.key);
 };
 
@@ -188,10 +232,13 @@ onBeforeUnmount(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
           <div v-for="item in group.items" :key="item.key"
             class="bg-app border border-border-subtle rounded-xl p-3 transition duration-200 ease-out"
-            :class="form[item.key] !== original[item.key] ? 'ring-1 ring-brand/30 border-brand/40' : ''">
-            <div class="flex items-center justify-between gap-3">
+            :class="[
+              form[item.key] !== original[item.key] ? 'ring-1 ring-brand/30 border-brand/40' : '',
+              item.kind === 'text' ? 'md:col-span-2' : '',
+            ]">
+            <div class="flex gap-3" :class="item.kind === 'text' ? 'flex-col' : 'items-center justify-between'">
               <!-- Label -->
-              <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div class="flex items-center gap-2 min-w-0" :class="item.kind === 'text' ? '' : 'flex-1'">
                 <span class="text-sm font-medium text-text-primary break-words">{{ item.label
                   }}</span>
                 <div class="relative inline-flex items-center group">
@@ -205,14 +252,16 @@ onBeforeUnmount(() => {
                     {{ fullDescription(item) }}
                   </span>
                 </div>
+                <Icon v-if="item.kind === 'text' && saving[item.key]" icon="lucide:loader-2"
+                  class="w-4 h-4 text-text-tertiary animate-spin" />
               </div>
 
               <!-- Stepper Input -->
-              <div class="flex items-center gap-2 shrink-0">
+              <div v-if="item.kind === 'number'" class="flex items-center gap-2 shrink-0">
                 <div class="flex items-center rounded-xl border border-border-subtle overflow-hidden">
                   <button type="button"
                     class="flex items-center justify-center w-9 h-9 bg-card border-r border-border-subtle text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="form[item.key] <= item.min || saving[item.key]" @click="stepValue(item, -1)">
+                    :disabled="atMin(item) || saving[item.key]" @click="stepValue(item, -1)">
                     <Icon icon="lucide:minus" class="w-4 h-4" />
                   </button>
                   <input type="number" v-model.number="form[item.key]" :min="item.min" :max="item.max"
@@ -221,12 +270,17 @@ onBeforeUnmount(() => {
                     @keydown.enter.prevent="saveNow(item)" />
                   <button type="button"
                     class="flex items-center justify-center w-9 h-9 bg-card text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="form[item.key] >= item.max || saving[item.key]" @click="stepValue(item, 1)">
+                    :disabled="atMax(item) || saving[item.key]" @click="stepValue(item, 1)">
                     <Icon icon="lucide:plus" class="w-4 h-4" />
                   </button>
                 </div>
                 <Icon v-if="saving[item.key]" icon="lucide:loader-2" class="w-4 h-4 text-text-tertiary animate-spin" />
               </div>
+
+              <!-- Text Input -->
+              <input v-else type="text" v-model="form[item.key]" :placeholder="item.default" spellcheck="false"
+                class="w-full h-9 px-3 text-sm font-mono text-text-primary bg-card border border-border-subtle rounded-xl outline-none transition duration-200 ease-out focus:border-brand/40 disabled:opacity-60"
+                :disabled="saving[item.key]" @blur="saveNow(item)" @keydown.enter.prevent="saveNow(item)" />
             </div>
           </div>
         </div>

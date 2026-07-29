@@ -1,5 +1,5 @@
 import type { RequestStats, TimeSeriesStats, RequestLog } from '@shared/types';
-import type { SettingKey, SettingsPayload } from '@shared/settings';
+import type { SettingKey, SettingValue, SettingsPayload } from '@shared/settings';
 import type { Provider, ProviderWithKeyCounts, ApiKey, Model, ModelMapping, ModelMappingWithProvider } from '@shared/types';
 import { getToken, removeToken } from './auth';
 
@@ -313,7 +313,7 @@ export async function listSettings(): Promise<SettingsPayload> {
   return await response.json();
 }
 
-export async function updateSetting(key: SettingKey, value: number): Promise<void> {
+export async function updateSetting(key: SettingKey, value: SettingValue): Promise<void> {
   const response = await authorizedFetch(`${API_BASE}/settings/${key}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
