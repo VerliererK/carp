@@ -46,7 +46,10 @@ export const proxyHandler = async (c: Context) => {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const apiKeyPool = await apiKeys.listLRU(c.env.DB, provider.id, { limit: 3, excludeIds: Array.from(excludedKeyIds) });
     const apiKey = pickRandom(apiKeyPool);
-    if (!apiKey) throw new HTTPException(503, { message: 'No available API keys' });
+    if (!apiKey) {
+      if (lastError) break; // Key pool exhausted by excludedKeyIds; fall through to the 502 with the upstream error
+      throw new HTTPException(503, { message: 'No available API keys' });
+    }
 
     if (isGemini) {
       headers.set('x-goog-api-key', apiKey.key);
