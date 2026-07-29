@@ -67,7 +67,7 @@ src/
 2. 驗證 provider 存在且已啟用
 3. LRU 策略選出最多 3 把最久未用的 key，隨機取其一
 4. 將請求轉發至 provider 的 `base_url`，附帶選中的 API key
-5. 遇到 401/429/5xx 錯誤時，以不同 key 重試（上限 `max_attempts`）
+5. 遇到 `retry_status_codes`（預設 `401,429,5xx`）命中的狀態碼時，以不同 key 重試（上限 `max_attempts`）
 6. 連續失敗超過 `max_key_failures` 次的 key 標記為 `invalid`
 
 **Gateway 流程** (`src/worker/api/gateway.ts`)：

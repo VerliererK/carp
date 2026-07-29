@@ -2,7 +2,8 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { RequestLog } from '@shared/types';
 import { providers, apiKeys, requestLogs } from '../lib/db';
-import { getMaxAttempts, getMaxKeyFailures } from '../lib/configs';
+import { getMaxAttempts, getMaxKeyFailures, getRetryStatusCodes } from '../lib/configs';
+import { matchesRetryStatus } from '@shared/settings';
 import { pickRandom } from '../lib/random';
 import { sanitizeHeaders } from '../lib/provider-request';
 
@@ -26,6 +27,7 @@ export const proxyHandler = async (c: Context) => {
   // Configuration
   const maxAttempts = await getMaxAttempts(c.env.DB);
   const maxKeyFailures = await getMaxKeyFailures(c.env.DB);
+  const retryStatusCodes = await getRetryStatusCodes(c.env.DB);
   const recordUsage = (key: number, success: boolean) => apiKeys.recordUsage(c.env.DB, key, success, maxKeyFailures);
   const logRequest = (log: Omit<RequestLog, 'id' | 'created_at'>) => c.executionCtx.waitUntil(requestLogs.create(c.env.DB, log));
 
@@ -75,7 +77,7 @@ export const proxyHandler = async (c: Context) => {
       logRequest({ provider_id: provider.id, api_key_id: apiKey.id, url_path: originalPath, model, status_code: response.status, success: 0, duration: duration, error_msg: errorMsg });
       lastError = new Error(errorMsg || `HTTP ${response.status}`);
 
-      if (!isRetryableStatus(response.status)) return response;
+      if (!matchesRetryStatus(response.status, retryStatusCodes)) return response;
       console.log(`Attempt ${attempt + 1} for provider '${providerName}' with key ID ${apiKey.id} failed with status ${response.status}. Retrying...`);
     } catch (error) {
       lastError = error as Error;
@@ -88,10 +90,6 @@ export const proxyHandler = async (c: Context) => {
   // All retries exhausted
   throw new HTTPException(502, { message: lastError?.message || 'Unknown error' });
 };
-
-function isRetryableStatus(status: number): boolean {
-  return status === 401 || status === 429 || status >= 500;
-}
 
 function getModel(url: string, body: ArrayBuffer): string | undefined {
   if (matchGemini(url)) {

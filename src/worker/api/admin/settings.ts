@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
-import { SETTING_DEFINITIONS, parseSettingValue, type ManagedSettingDefinition, type SettingKey, type SettingsPayload } from '@shared/settings';
+import { SETTING_DEFINITIONS, parseRetryStatusCodes, parseSettingValue, type ManagedSettingDefinition, type SettingKey, type SettingsPayload } from '@shared/settings';
 import { systemSettings } from '../../lib/db';
 
 const app = new Hono<{ Bindings: Env }>();
@@ -62,7 +62,15 @@ app.put('/:key', async (c) => {
 
   const definition = SETTING_DEFINITIONS[key];
   const { value } = await c.req.json<{ value: unknown }>();
-  const serialized = validateAndSerializeSettingValue(value, definition);
+  let serialized = validateAndSerializeSettingValue(value, definition);
+
+  if (key === 'retry_status_codes') {
+    try {
+      serialized = parseRetryStatusCodes(serialized).join(',');
+    } catch (e) {
+      throw new HTTPException(400, { message: (e as Error).message });
+    }
+  }
 
   await systemSettings.set(c.env.DB, key, serialized);
 

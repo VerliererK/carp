@@ -73,7 +73,7 @@ npm run cf-typegen
   1. 依供應商名稱載入設定；若停用將回傳 403
   2. 依 LRU（Least Recently Used）取出至多 3 把最久未使用金鑰，再隨機選擇其中一把
   3. 同步轉發原始 HTTP 方法、查詢參數與 Body
-  4. 若回傳 401 / 429 / 5xx，會換下一把金鑰並重試最多 `max_attempts` 次
+  4. 若回傳的狀態碼命中 `retry_status_codes`（預設 `401,429,5xx`），會換下一把金鑰並重試最多 `max_attempts` 次
   5. 將成功或失敗統計寫入 D1
 
 #### Example
