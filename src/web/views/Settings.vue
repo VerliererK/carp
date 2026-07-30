@@ -54,6 +54,14 @@ const settingItems: SettingItem[] = [
     default: SETTING_DEFINITIONS.max_key_failures.default,
   },
   {
+    kind: 'text',
+    key: 'retry_status_codes',
+    label: 'Retry Status Codes',
+    description: 'Response status codes that trigger a retry with another key. Comma-separated, accepts exact codes (100~599) and wildcards (1xx~5xx). Leave empty to never retry on status.',
+    default: SETTING_DEFINITIONS.retry_status_codes.default,
+    normalize: value => parseRetryStatusCodes(value).join(','),
+  },
+  {
     kind: 'number',
     key: 'log_retention_days',
     label: 'Log Retention',
@@ -70,14 +78,6 @@ const settingItems: SettingItem[] = [
     min: SETTING_DEFINITIONS.test_key_concurrency.min,
     max: SETTING_DEFINITIONS.test_key_concurrency.max,
     default: SETTING_DEFINITIONS.test_key_concurrency.default,
-  },
-  {
-    kind: 'text',
-    key: 'retry_status_codes',
-    label: 'Retry Status Codes',
-    description: 'Response status codes that trigger a retry with another key. Comma-separated, accepts exact codes (100~599) and wildcards (1xx~5xx). Leave empty to never retry on status.',
-    default: SETTING_DEFINITIONS.retry_status_codes.default,
-    normalize: value => parseRetryStatusCodes(value).join(','),
   },
 ];
 
@@ -258,13 +258,10 @@ onBeforeUnmount(() => {
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
           <div v-for="item in group.items" :key="item.key"
             class="bg-app border border-border-subtle rounded-xl p-3 transition duration-200 ease-out"
-            :class="[
-              form[item.key] !== original[item.key] ? 'ring-1 ring-brand/30 border-brand/40' : '',
-              item.kind === 'text' ? 'md:col-span-2' : '',
-            ]">
-            <div class="flex gap-3" :class="item.kind === 'text' ? 'flex-col' : 'items-center justify-between'">
+            :class="form[item.key] !== original[item.key] ? 'ring-1 ring-brand/30 border-brand/40' : ''">
+            <div class="flex flex-col gap-2">
               <!-- Label -->
-              <div class="flex items-center gap-2 min-w-0" :class="item.kind === 'text' ? '' : 'flex-1'">
+              <div class="flex items-center gap-2 min-w-0">
                 <span class="text-sm font-medium text-text-primary break-words">{{ item.label
                   }}</span>
                 <div class="relative inline-flex items-center group">
@@ -278,34 +275,33 @@ onBeforeUnmount(() => {
                     {{ fullDescription(item) }}
                   </span>
                 </div>
-                <Icon v-if="item.kind === 'text' && saving[item.key]" icon="lucide:loader-2"
-                  class="w-4 h-4 text-text-tertiary animate-spin" />
+                <Icon v-if="saving[item.key]" icon="lucide:loader-2"
+                  class="ml-auto w-4 h-4 shrink-0 text-text-tertiary animate-spin" />
               </div>
 
               <!-- Stepper Input -->
-              <div v-if="item.kind === 'number'" class="flex items-center gap-2 shrink-0">
-                <div class="flex items-center rounded-xl border border-border-subtle overflow-hidden">
-                  <button type="button"
-                    class="flex items-center justify-center w-9 h-9 bg-card border-r border-border-subtle text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="atMin(item) || saving[item.key]" @click="stepValue(item, -1)">
-                    <Icon icon="lucide:minus" class="w-4 h-4" />
-                  </button>
-                  <input type="number" v-model.number="form[item.key]" :min="item.min" :max="item.max"
-                    class="w-14 h-9 text-sm text-center font-mono font-medium text-text-primary bg-app border-r border-border-subtle outline-none focus:ring-0 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    :disabled="saving[item.key]" @input="scheduleSave(item)" @blur="saveNow(item)"
-                    @keydown.enter.prevent="saveNow(item)" />
-                  <button type="button"
-                    class="flex items-center justify-center w-9 h-9 bg-card text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
-                    :disabled="atMax(item) || saving[item.key]" @click="stepValue(item, 1)">
-                    <Icon icon="lucide:plus" class="w-4 h-4" />
-                  </button>
-                </div>
-                <Icon v-if="saving[item.key]" icon="lucide:loader-2" class="w-4 h-4 text-text-tertiary animate-spin" />
+              <div v-if="item.kind === 'number'"
+                class="flex items-center self-start rounded-xl border border-border-subtle overflow-hidden">
+                <button type="button"
+                  class="flex items-center justify-center w-9 h-9 shrink-0 bg-card border-r border-border-subtle text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="atMin(item) || saving[item.key]" @click="stepValue(item, -1)">
+                  <Icon icon="lucide:minus" class="w-4 h-4" />
+                </button>
+                <input type="number" v-model.number="form[item.key]" :min="item.min" :max="item.max"
+                  class="w-14 h-9 text-sm text-center font-mono font-medium text-text-primary bg-app border-r border-border-subtle outline-none focus:ring-0 disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  :disabled="saving[item.key]" @input="scheduleSave(item)" @blur="saveNow(item)"
+                  @keydown.enter.prevent="saveNow(item)" />
+                <button type="button"
+                  class="flex items-center justify-center w-9 h-9 shrink-0 bg-card text-text-secondary hover:bg-card-hover hover:text-text-primary cursor-pointer transition duration-200 ease-out disabled:opacity-40 disabled:cursor-not-allowed"
+                  :disabled="atMax(item) || saving[item.key]" @click="stepValue(item, 1)">
+                  <Icon icon="lucide:plus" class="w-4 h-4" />
+                </button>
               </div>
 
               <!-- Text Input -->
               <input v-else type="text" v-model="form[item.key]" :placeholder="item.default" spellcheck="false"
-                class="w-full h-9 px-3 text-sm font-mono text-text-primary bg-card border rounded-xl outline-none transition duration-200 ease-out disabled:opacity-60"
+                :title="String(form[item.key] ?? '')"
+                class="w-full h-9 px-3 text-sm font-mono text-text-primary bg-app border rounded-xl outline-none transition duration-200 ease-out disabled:opacity-60"
                 :class="invalid[item.key] ? 'border-status-error-border' : 'border-border-subtle focus:border-brand/40'"
                 :disabled="saving[item.key]" @input="scheduleSave(item)" @blur="saveNow(item)"
                 @keydown.enter.prevent="saveNow(item)" />
