@@ -91,10 +91,12 @@ const settingGroups: SettingGroup[] = [
 
 const loading = ref(true);
 const saving = reactive<Record<SettingKey, boolean>>({} as Record<SettingKey, boolean>);
+const invalid = reactive<Record<SettingKey, boolean>>({} as Record<SettingKey, boolean>);
 const original = ref<Record<SettingKey, SettingValue>>({} as Record<SettingKey, SettingValue>);
 const form = reactive<Record<SettingKey, SettingValue>>({} as Record<SettingKey, SettingValue>);
 const saveTimers = new Map<SettingKey, ReturnType<typeof setTimeout>>();
 const SAVE_DEBOUNCE_MS = 600;
+const TEXT_SAVE_DEBOUNCE_MS = 1200;
 const appVersion = __APP_VERSION__;
 
 const fetchSettings = async () => {
@@ -153,6 +155,21 @@ const fullDescription = (item: SettingItem) =>
 const atMin = (item: SettingItem) => item.kind === 'number' && Number(form[item.key]) <= item.min;
 const atMax = (item: SettingItem) => item.kind === 'number' && Number(form[item.key]) >= item.max;
 
+/** Normalize a text value in place. Returns false and flags the field when it does not parse. */
+const tryNormalize = (item: TextSettingItem): boolean => {
+  const raw = String(form[item.key] ?? '');
+  let normalized: string;
+  try {
+    normalized = item.normalize(raw);
+  } catch {
+    invalid[item.key] = true;
+    return false;
+  }
+  invalid[item.key] = false;
+  if (normalized !== raw) form[item.key] = normalized; // Only rewrite when it differs, so the caret stays put
+  return true;
+};
+
 const cancelScheduledSave = (key: SettingKey) => {
   const timer = saveTimers.get(key);
   if (!timer) return;
@@ -162,8 +179,22 @@ const cancelScheduledSave = (key: SettingKey) => {
 
 const scheduleSave = (item: SettingItem) => {
   const key = item.key;
-  if (item.kind !== 'number') return; // Text settings save on blur/enter only, so typing never trips validation
   if (saving[key]) return;
+
+  if (item.kind === 'text') {
+    cancelScheduledSave(key);
+    saveTimers.set(
+      key,
+      setTimeout(() => {
+        cancelScheduledSave(key);
+        // A half-typed list just shows the error border; it saves as soon as it parses
+        if (!tryNormalize(item)) return;
+        void saveSetting(key);
+      }, TEXT_SAVE_DEBOUNCE_MS),
+    );
+    return;
+  }
+
   const value = Number(form[key]);
   if (!Number.isFinite(value)) return;
 
@@ -192,13 +223,8 @@ const saveNow = (item: SettingItem) => {
   cancelScheduledSave(item.key);
 
   if (item.kind === 'text') {
-    try {
-      form[item.key] = item.normalize(String(form[item.key] ?? ''));
-    } catch (e: any) {
-      toast.error(e.message || 'Invalid value');
-      form[item.key] = original.value[item.key];
-      return;
-    }
+    // Keep what was typed on screen with the error border rather than discarding it
+    if (!tryNormalize(item)) return;
   } else {
     clampValue(item);
   }
@@ -279,8 +305,10 @@ onBeforeUnmount(() => {
 
               <!-- Text Input -->
               <input v-else type="text" v-model="form[item.key]" :placeholder="item.default" spellcheck="false"
-                class="w-full h-9 px-3 text-sm font-mono text-text-primary bg-card border border-border-subtle rounded-xl outline-none transition duration-200 ease-out focus:border-brand/40 disabled:opacity-60"
-                :disabled="saving[item.key]" @blur="saveNow(item)" @keydown.enter.prevent="saveNow(item)" />
+                class="w-full h-9 px-3 text-sm font-mono text-text-primary bg-card border rounded-xl outline-none transition duration-200 ease-out disabled:opacity-60"
+                :class="invalid[item.key] ? 'border-status-error-border' : 'border-border-subtle focus:border-brand/40'"
+                :disabled="saving[item.key]" @input="scheduleSave(item)" @blur="saveNow(item)"
+                @keydown.enter.prevent="saveNow(item)" />
             </div>
           </div>
         </div>
