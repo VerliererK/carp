@@ -83,7 +83,7 @@ function testChatCompletions(
   const baseUrl = provider.base_url.replace(/\/+$/, '');
   const testPath = (provider.test_path || 'v1/chat/completions').replace(/^\/+/, '');
   const testUrl = `${baseUrl}/${testPath}`;
-  const useMaxCompletionTokens = /^gpt-5/.test(model || '');
+  const useMaxCompletionTokens = /^gpt-[5-9]/.test(model || '');
 
   return fetchTimeout(testUrl, {
     method: 'POST',
