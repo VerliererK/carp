@@ -1,6 +1,7 @@
 import type { Context, Hono } from 'hono';
 import { models, modelMappings } from '../lib/db';
 import { pickRandom } from '../lib/random';
+import { usesMaxCompletionTokens } from '../lib/provider-request';
 
 export async function listModelsHandler(c: Context<{ Bindings: Env }>) {
   const allModels = await models.list(c.env.DB);
@@ -44,7 +45,11 @@ export function createGatewayHandler(app: Hono<{ Bindings: Env }>) {
     }
 
     // Rewrite body with the actual model name
-    const rewrittenBody = { ...body, model: picked.model_name };
+    const rewrittenBody: Record<string, unknown> = { ...body, model: picked.model_name };
+    if (usesMaxCompletionTokens(picked.model_name) && 'max_tokens' in rewrittenBody) {
+      rewrittenBody.max_completion_tokens ??= rewrittenBody.max_tokens;
+      delete rewrittenBody.max_tokens;
+    }
 
     // Build internal request to proxy
     const proxyPath = `/proxy/${picked.provider_name}${c.req.path}`;
