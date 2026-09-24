@@ -13,6 +13,10 @@ const ALLOWED_HEADER_PREFIXES = [
   'openai-',
 ];
 
+export function usesMaxCompletionTokens(model?: string | null): boolean {
+  return /^gpt-[5-9]/.test(model || '');
+}
+
 export function sanitizeHeaders(
   originalHeaders: Headers,
   provider: Provider
@@ -83,7 +87,7 @@ function testChatCompletions(
   const baseUrl = provider.base_url.replace(/\/+$/, '');
   const testPath = (provider.test_path || 'v1/chat/completions').replace(/^\/+/, '');
   const testUrl = `${baseUrl}/${testPath}`;
-  const useMaxCompletionTokens = /^gpt-[5-9]/.test(model || '');
+  const useMaxCompletionTokens = usesMaxCompletionTokens(model);
 
   return fetchTimeout(testUrl, {
     method: 'POST',
