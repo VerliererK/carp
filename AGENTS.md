@@ -76,6 +76,7 @@ src/
 3. 查詢 `models` + `model_mappings` 表，找出該 model 對應的所有啟用中 provider mapping
 4. 隨機選取一個 mapping，以實際 `model_name` 覆寫 body
 5. 內部轉發至 `/proxy/:provider/*`，複用既有的 key 輪換與重試邏輯
+6. 回應狀態碼命中 `retry_status_codes` 時改試下一個 mapping（最多 `max_attempts` 次），全數失敗則回傳最後一次的上游回應
 
 **資料庫層** (`src/worker/lib/db.ts`)：
 - `systemSettings`：Key-Value 設定存儲

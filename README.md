@@ -93,8 +93,9 @@ curl -X POST "http://localhost:5173/proxy/openai/v1/chat/completions" \
 - 執行流程：
   1. 解析 request body 中的 `model` 欄位
   2. 查詢 model mappings，找出該虛擬模型對應的所有已啟用 provider
-  3. 隨機選取一個 mapping，以實際模型名稱覆寫 body
+  3. 以隨機順序選取 mapping，每次以實際模型名稱覆寫 body
   4. 內部轉發至 `/proxy/:provider/*`，複用既有的 key 輪換與重試邏輯
+  5. 若回應狀態碼命中 `retry_status_codes`，改試下一個 mapping（最多 `max_attempts` 次）；全部失敗則回傳最後一次的上游回應
 
 #### 可用端點
 ```
