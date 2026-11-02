@@ -27,12 +27,16 @@
 			"0 0 * * *",
 			"0 * * * *"
 		]
-    }
+    },
     /**
-	 * Smart Placement
-	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
+	 * Placement
+	 * 固定 Worker 執行位置在東京（鄰近 D1 的 APAC 區域，且對美國上游 LLM API 的連線較佳）
+	 * Docs: https://developers.cloudflare.com/workers/configuration/placement/
 	 */
-    // "placement": { "mode": "smart" }
+    "placement": {
+        "mode": "targeted",
+        "region": "aws:ap-northeast-1"
+    }
     /**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
